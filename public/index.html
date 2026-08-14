@@ -178,7 +178,7 @@
       <!-- 2. KDMP -->
       <div class="sbox b" title="Total Koperasi Terdaftar"><div class="snum" id="stKDMP">0</div><div class="slbl">KDMP Koperasi</div><span class="sico">🏪</span></div>
       <!-- 3. MONITORING -->
-      <div class="sbox o" title="Total Catatan Monitoring Tersimpan"><div class="snum" id="stMon">0</div><div class="slbl">Total Monitoring</div><span class="sico">📋</span></div>
+      <div class="sbox o" title="Total Monitoring Utama SPPG dan KDMP"><div class="snum" id="stMon">0</div><div class="slbl">Monitoring Utama</div><div class="ssub" id="stMonSub">SPPG 0 · KDMP 0 · Naker 0 form</div><span class="sico">📋</span></div>
       <!-- 4. AKTIF / OPERASIONAL -->
       <div class="sbox g" title="Unit Berstatus Aktif / Operasional"><div class="snum" id="stOper">0</div><div class="slbl">Aktif / Operasional</div><div class="ssub" id="stOperSub">—</div><span class="sico">✅</span></div>
       <!-- 5. DALAM PERSIAPAN -->
@@ -302,7 +302,7 @@
       <button class="btn bd bsm" onclick="exportPdfUnits()"><i class="fas fa-file-pdf"></i> PDF</button>
       <button class="btn bs bsm" id="btnBackup" onclick="exportJSON()"><i class="fas fa-download"></i> Backup</button>
       <button class="btn bs bsm" id="btnRestore" onclick="document.getElementById('impJson').click()"><i class="fas fa-upload"></i> Restore</button>
-      <button class="btn bp bsm" id="btnImportTOptimal" onclick="document.getElementById('impTOptimal').click()"><i class="fas fa-gears"></i> Proses T-OPTIMAL</button>
+      <button class="btn bp bsm" id="btnImportTOptimal" onclick="openTOptimalProcessMenu()"><i class="fas fa-gears"></i> Proses T-OPTIMAL</button>
       <input type="file" id="impJson" accept=".json" style="display:none" onchange="importJSON(event)"/>
       <input type="file" id="impTOptimal" accept=".json,application/json" style="display:none" onchange="importTOptimal(event)"/>
     </div>
@@ -605,6 +605,40 @@
       <div id="userList"></div>
     </div>
     <div class="mfoot"><button class="btn bx" onclick="closeM('mUsers')">Tutup</button></div>
+  </div>
+</div>
+
+<!-- ================= MODAL: PROSES T-OPTIMAL ================= -->
+<div id="mTOptimalProcess" class="moverlay hidden">
+  <div class="mbox" style="max-width:640px">
+    <div class="mhead"><h3><i class="fas fa-gears"></i> Proses T-OPTIMAL</h3><button class="mclose" onclick="closeTOptimalProcessMenu()">×</button></div>
+    <div class="mbody">
+      <div class="import-explain"><b>Satu file JSON, dua arah proses:</b> gunakan <b>Import</b> untuk memasukkan data dari Connector Windows ke DARMA-1. Gunakan <b>Ekspor Form</b> untuk menyiapkan payload monitoring terpilih yang nantinya dapat digunakan Portal T-OPTIMAL.</div>
+      <div class="process-choice-grid">
+        <button class="process-choice" onclick="beginTOptimalImport()"><i class="fas fa-file-import"></i><b>Import JSON</b><small>Pilih mode proses lalu tampilkan pratinjau sebelum menyimpan.</small></button>
+        <button class="process-choice" onclick="openTOptimalExport()"><i class="fas fa-file-export"></i><b>Ekspor Form Monitoring</b><small>Pilih monitoring SPPG/NAKER/KDMP untuk payload outbound.</small></button>
+      </div>
+      <div class="import-currency-note">Ekspor belum mengirim data ke T-OPTIMAL. File hanya disiapkan untuk tahap Portal T-OPTIMAL berikutnya.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: EKSPOR FORM T-OPTIMAL ================= -->
+<div id="mTOptimalExport" class="moverlay hidden">
+  <div class="mbox wide" style="max-width:1120px">
+    <div class="mhead"><h3><i class="fas fa-file-export"></i> Ekspor Form Monitoring untuk T-OPTIMAL</h3><button class="mclose" onclick="closeTOptimalExport()">×</button></div>
+    <div class="mbody">
+      <div class="import-explain"><b>Payload outbound:</b> data terpilih diekspor sebagai JSON dengan identitas sumber DARMA-1 dan formData. File belum diinjeksi ke T-OPTIMAL; Portal T-OPTIMAL akan menggunakan payload ini pada tahap berikutnya.</div>
+      <div class="import-toolbar">
+        <select id="toptExportForm" class="fc" onchange="renderTOptimalExport()"><option value="">Semua Formulir</option><option value="SPPG">Monitoring SPPG/MBG</option><option value="NAKER">Monitoring Tenaga Kerja</option><option value="KDMP">Monitoring KDMP</option></select>
+        <input id="toptExportStart" type="date" class="fc" onchange="renderTOptimalExport()" title="Tanggal awal"/>
+        <input id="toptExportEnd" type="date" class="fc" onchange="renderTOptimalExport()" title="Tanggal akhir"/>
+        <input id="toptExportSearch" class="fc import-search" placeholder="Cari unit atau ID monitoring..." oninput="renderTOptimalExport()"/>
+      </div>
+      <div class="import-count" id="toptExportMeta">Belum ada data.</div>
+      <div class="import-table-wrap"><table class="import-table"><thead><tr><th style="width:34px">Pilih</th><th>Form</th><th>Unit</th><th>Tanggal</th><th>ID DARMA</th><th>Status</th></tr></thead><tbody id="toptExportRows"></tbody></table></div>
+    </div>
+    <div class="mfoot"><button class="btn bx" onclick="closeTOptimalExport()">Batal</button><button class="btn bp" id="toptExportButton" onclick="exportTOptimalSelected()" disabled><i class="fas fa-download"></i> Ekspor JSON Terpilih</button></div>
   </div>
 </div>
 

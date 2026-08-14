@@ -4,6 +4,7 @@ import './domain/forms/registry.js';
 import './features/monitoring/form-engine.js';
 import './data/runtime.js';
 import './features/imports/t-optimal.js';
+import './features/imports/t-optimal-export.js';
 import './features/map/index.js';
 import './features/filters/index.js';
 import './core/navigation.js';

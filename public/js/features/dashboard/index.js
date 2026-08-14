@@ -12,6 +12,17 @@ function applyRBAC() {
   const rptDash=document.getElementById('btnDashReport');if(rptDash)rptDash.style.display=isAdmin?'inline-flex':'none';
 }
 function renderAll(){renderMap();renderDash();renderUnitList();renderHist();refreshUnitSelect();applyRBAC();}
+function monitoringKind(record) {
+  if (record && record.formType) return record.formType;
+  if (record && record.jenis) return record.jenis;
+  const unit = record ? unitById(record.unitId) : null;
+  return unit ? unit.jenis : '';
+}
+function isNakerMonitoring(record) { return monitoringKind(record) === 'NAKER'; }
+function isPrimaryMonitoring(record) { const kind = monitoringKind(record); return kind === 'SPPG' || kind === 'KDMP'; }
+function mainMonitoringForUnit(unitId, kind = '') {
+  return DB.monitoring.filter(record => record.unitId === unitId && isPrimaryMonitoring(record) && (!kind || monitoringKind(record) === kind));
+}
 function renderDash(){
   const list = filteredUnits();
   const dbBanner=document.getElementById('dashBanner');
@@ -23,7 +34,14 @@ function renderDash(){
   const plan=list.filter(u=>u.status==='rencana');
   document.getElementById('stSPPG').textContent=s;
   document.getElementById('stKDMP').textContent=k;
-  document.getElementById('stMon').textContent=DB.monitoring.filter(m=>list.some(u=>u.id===m.unitId)).length;
+  const scopedMonitoring = DB.monitoring.filter(m=>list.some(u=>u.id===m.unitId));
+  const primaryMonitoring = scopedMonitoring.filter(isPrimaryMonitoring);
+  const sppgMonitoringCount = primaryMonitoring.filter(m=>monitoringKind(m)==='SPPG').length;
+  const kdmpMonitoringCount = primaryMonitoring.filter(m=>monitoringKind(m)==='KDMP').length;
+  const nakerFormCount = scopedMonitoring.filter(isNakerMonitoring).length;
+  document.getElementById('stMon').textContent=primaryMonitoring.length;
+  const stMonSub=document.getElementById('stMonSub');
+  if(stMonSub)stMonSub.textContent=`SPPG ${sppgMonitoringCount} · KDMP ${kdmpMonitoringCount} · Naker ${nakerFormCount} form`;
   document.getElementById('stOper').textContent=oper.length;
   const operSub=document.getElementById('stOperSub');if(operSub)operSub.textContent=`${oper.filter(u=>u.jenis==='SPPG').length} SPPG · ${oper.filter(u=>u.jenis==='KDMP').length} KDMP`;
   const prepEl=document.getElementById('stPrep');if(prepEl)prepEl.textContent=prep.length;
@@ -32,9 +50,9 @@ function renderDash(){
   const planSub=document.getElementById('stPlanSub');if(planSub)planSub.textContent=`${plan.filter(u=>u.jenis==='SPPG').length} SPPG · ${plan.filter(u=>u.jenis==='KDMP').length} KDMP`;
 
   // progres cakupan
-  const sppgAll = list.filter(u=>u.jenis==='SPPG'), sppgMon = sppgAll.filter(u=>monsOf(u.id).length>0);
-  const kdmpAll = list.filter(u=>u.jenis==='KDMP'), kdmpMon = kdmpAll.filter(u=>monsOf(u.id).length>0);
-  const totAll = list.length || 1, totMon = list.filter(u=>monsOf(u.id).length>0).length;
+  const sppgAll = list.filter(u=>u.jenis==='SPPG'), sppgMon = sppgAll.filter(u=>mainMonitoringForUnit(u.id,'SPPG').length>0);
+  const kdmpAll = list.filter(u=>u.jenis==='KDMP'), kdmpMon = kdmpAll.filter(u=>mainMonitoringForUnit(u.id,'KDMP').length>0);
+  const totAll = list.length || 1, totMon = list.filter(u=>mainMonitoringForUnit(u.id).length>0).length;
   const pSPPG = Math.round(sppgMon.length/(sppgAll.length||1)*100);
   const pKDMP = Math.round(kdmpMon.length/(kdmpAll.length||1)*100);
   const pTot = Math.round(totMon/totAll*100);
@@ -59,7 +77,7 @@ function renderDash(){
     </div>`).join('');
 
   // target sasaran unit belum dimonitor (0 kunjungan)
-  const unmon = list.filter(u=>monsOf(u.id).length === 0)
+  const unmon = list.filter(u=>mainMonitoringForUnit(u.id).length === 0)
      .sort((a,b)=> (a.jenis==='SPPG'?-1:1) || a.nama.localeCompare(b.nama)).slice(0,6);
   document.getElementById('attnList').innerHTML=unmon.length?unmon.map(u=>{
     return `<div class="krow" onclick="openDetail('${u.id}')">
@@ -70,7 +88,7 @@ function renderDash(){
   }).join(''):'<div class="empty"><i class="fas fa-check-circle"></i><p>Semua unit sudah dimonitor 🎉</p></div>';
 
   // recent monitoring
-  const rec=[...DB.monitoring].sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,5);
+  const rec=[...DB.monitoring].filter(isPrimaryMonitoring).sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,5);
   document.getElementById('recentMon').innerHTML=rec.length?rec.map(m=>{
     const u=unitById(m.unitId);if(!u)return '';
     return `<div class="krow" onclick="openDetail('${u.id}')">
