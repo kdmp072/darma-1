@@ -35,7 +35,7 @@ function stableId(prefix, value) {
 function sourceKey(item) { return `toptimal:${item.sheetName}:${item.sourceId}`; }
 
 function naturalUnitKey(item) {
-  const unit = findUnit(item.identity);
+  const unit = findUnit(item.identity, item.formType === 'KDMP' ? 'KDMP' : 'SPPG');
   if (unit) return unit.id;
   const identity = item.identity || {};
   return `name:${norm(identity.name)}|kab:${norm(identity.kab)}|kec:${norm(identity.kec)}|desa:${norm(identity.desa)}`;
@@ -46,10 +46,10 @@ function naturalKey(item) {
   return `natural:sppg:${naturalUnitKey(item)}:${item.tgl}`;
 }
 
-function findUnit(identity) {
+function findUnit(identity, jenis = 'SPPG') {
   const name = norm(identity?.name), kab = norm(identity?.kab);
   if (!name) return null;
-  const units = unitsRepository.getAll().filter(unit => unit.jenis === 'SPPG');
+  const units = unitsRepository.getAll().filter(unit => unit.jenis === jenis);
   return units.find(unit => norm(unit.nama) === name && (!kab || norm(unit.kab) === kab))
     || units.find(unit => norm(unit.nama) === name)
     || units.find(unit => name.length > 5 && norm(unit.nama).includes(name));
@@ -59,8 +59,9 @@ function makeUnit(item) {
   const identity = item.identity || {};
   const raw = item.raw || {};
   const name = identity.name || `SPPG T-OPTIMAL ${item.sourceId}`;
+  const jenis = item.formType === 'KDMP' ? 'KDMP' : 'SPPG';
   return {
-    id: stableId('topt-unit-', `${name}|${identity.kab}|${identity.kec}`), jenis: 'SPPG', nama: name,
+    id: stableId('topt-unit-', `${jenis}|${name}|${identity.kab}|${identity.kec}`), jenis, nama: name,
     ref: `T-OPTIMAL:${item.sourceId}`, status: String(raw.q104_beroperasi || '').toLowerCase().includes('tidak') ? 'kendala' : 'aktif',
     kab: identity.kab || '', kec: identity.kec || '', desa: identity.desa || '', alamat: '',
     lat: number(identity.lat), lng: number(identity.lng), pic: '', telp: '',
@@ -72,16 +73,18 @@ function makeUnit(item) {
 function makeMonitoring(item, unit, bundle) {
   const raw = item.raw || {};
   const fallbackDate = dateOnly(bundle?.exportedAt, new Date().toISOString().slice(0, 10));
-  return {
-    id: sourceKey(item), unitId: unit.id, tgl: dateOnly(item.tgl, fallbackDate),
-    petugas: item.petugas || bundle?.scope?.email || 'T-OPTIMAL', jenis: 'SPPG', formType: item.formType,
-    form: {
+  const form = item.formType === 'KDMP'
+    ? Object.assign({}, item.fields, { raw, _source: { system: 'T-OPTIMAL', responseId: item.sourceId, sheetName: item.sheetName, importedAt: new Date().toISOString(), normalizationVersion: 't-optimal-darma-v1', scope: bundle?.scope || {} } })
+    : {
       version: item.formType === 'SPPG' ? 'SPPG-2026-08' : 'NAKER-REMOTE',
       fields: item.fields, raw,
-      _source: { system: 'T-OPTIMAL', responseId: item.sourceId, sheetName: item.sheetName,
-        importedAt: new Date().toISOString(), normalizationVersion: 't-optimal-darma-currency-v1', scope: bundle?.scope || {} }
-    },
-    hasil: 'sudah', kebersihan: '', gizi: '', distribusi: '', dok: item.fileUrl ? 'baik' : '',
+      _source: { system: 'T-OPTIMAL', responseId: item.sourceId, sheetName: item.sheetName, importedAt: new Date().toISOString(), normalizationVersion: 't-optimal-darma-v1', scope: bundle?.scope || {} }
+    };
+  return {
+    id: sourceKey(item), unitId: unit.id, tgl: dateOnly(item.tgl, fallbackDate),
+    petugas: item.petugas || bundle?.scope?.email || 'T-OPTIMAL', jenis: item.formType === 'KDMP' ? 'KDMP' : 'SPPG', formType: item.formType,
+    form,
+    hasil: item.formType === 'KDMP' ? (item.fields.hasil || 'sudah') : 'sudah', kebersihan: '', gizi: '', distribusi: '', dok: item.fileUrl ? 'baik' : '',
     temuan: String(raw.analisisSurveyor || '').trim() || `Respons ${item.formType} diimpor dari T-OPTIMAL.`, rekom: ''
   };
 }
@@ -90,11 +93,11 @@ function rowStatus(item, existingIds) {
   if (!item.sourceId) return 'invalid';
   if (existingIds.has(sourceKey(item))) return 'sudah-ada';
   if (!item.identity?.name) return 'tanpa-unit';
-  return findUnit(item.identity) ? 'baru' : 'unit-baru';
+  return findUnit(item.identity, item.formType === 'KDMP' ? 'KDMP' : 'SPPG') ? 'baru' : 'unit-baru';
 }
 
 function statusLabel(status) {
-  return ({ baru: 'Data baru', 'sudah-ada': 'Sudah ada', 'duplikat-hari': 'Duplikat SPPG/hari', 'duplikat-file': 'Duplikat dalam file', 'unit-baru': 'Unit belum ada', 'tanpa-unit': 'Nama unit kosong', invalid: 'Tidak valid' })[status] || status;
+  return ({ baru: 'Data baru', 'sudah-ada': 'Sudah ada', 'duplikat-hari': 'Duplikat SPPG/hari', 'duplikat-file': 'Duplikat dalam file', 'siap-koordinat': 'Siap update koordinat', 'unit-baru': 'Unit belum ada', 'tanpa-unit': 'Nama unit kosong', invalid: 'Tidak valid' })[status] || status;
 }
 
 function coordinateValue(value) {
@@ -114,10 +117,48 @@ function coordinateText(value) {
 
 function coordinateCell(row) {
   const incoming = row.item.identity || {};
-  const unit = findUnit(incoming);
+  const unit = findUnit(incoming, row.item.formType === 'KDMP' ? 'KDMP' : 'SPPG');
   const incomingText = hasValidCoordinates(incoming) ? `${coordinateText(incoming.lat)}, ${coordinateText(incoming.lng)}` : 'Tidak tersedia';
   const existingText = unit && hasValidCoordinates(unit) ? `${coordinateText(unit.lat)}, ${coordinateText(unit.lng)}` : 'Master kosong';
   return `<div><small>JSON: ${esc(incomingText)}</small><small>Master: ${esc(existingText)}</small></div>`;
+}
+
+const MODE_HELP = {
+  coordinates: 'Hanya menampilkan respons yang memiliki koordinat dan mencocokkannya dengan Master Unit. Tidak membuat monitoring baru.',
+  sppg: 'Mengimpor monitoring SPPG/MBG. Satu Master Unit pada tanggal survei yang sama diperlakukan sebagai satu rekaman.',
+  naker: 'Mengimpor monitoring Tenaga Kerja. Banyak responden pada SPPG dan tanggal yang sama tetap diperbolehkan.',
+  kdmp: 'Mengimpor monitoring KDMP/KKMP dan mencocokkannya dengan Master Unit berjenis KDMP.'
+};
+
+function currentTOptimalMode() { return document.getElementById('toptProcessMode')?.value || importState.mode || 'coordinates'; }
+function modeMatches(row) {
+  const mode = importState.mode || currentTOptimalMode();
+  if (mode === 'coordinates') return hasValidCoordinates(row.item.identity);
+  if (mode === 'sppg') return row.item.formType === 'SPPG';
+  if (mode === 'naker') return row.item.formType === 'NAKER';
+  if (mode === 'kdmp') return row.item.formType === 'KDMP';
+  return true;
+}
+function displayStatus(row) {
+  if (importState.mode === 'coordinates') {
+    if (!findUnit(row.item.identity, row.item.formType === 'KDMP' ? 'KDMP' : 'SPPG')) return 'unit-baru';
+    return hasValidCoordinates(row.item.identity) ? 'siap-koordinat' : 'invalid';
+  }
+  return row.status;
+}
+function changeTOptimalMode() {
+  importState.mode = currentTOptimalMode();
+  const help = document.getElementById('toptModeHelp'); if (help) help.textContent = MODE_HELP[importState.mode] || '';
+  const updateCoordinates = document.getElementById('toptUpdateCoordinates');
+  const autoCreate = document.getElementById('toptAutoCreateUnits');
+  const replaceSameDay = document.getElementById('toptReplaceSameDay');
+  if (updateCoordinates) { updateCoordinates.checked = importState.mode === 'coordinates'; updateCoordinates.disabled = importState.mode === 'coordinates'; }
+  if (autoCreate) { autoCreate.disabled = importState.mode === 'coordinates'; autoCreate.checked = false; }
+  if (replaceSameDay) { replaceSameDay.disabled = importState.mode !== 'sppg'; if (importState.mode !== 'sppg') replaceSameDay.checked = false; }
+  const commit = document.getElementById('toptImportCommit');
+  if (commit) commit.innerHTML = importState.mode === 'coordinates' ? '<i class="fas fa-map-marker-alt"></i> Simpan Koordinat Terpilih' : '<i class="fas fa-check"></i> Tambahkan Data Terpilih';
+  importState.rows.forEach(row => { row.selected = modeMatches(row) && (importState.mode === 'coordinates' ? displayStatus(row) === 'siap-koordinat' : row.status === 'baru'); });
+  renderImportSummary();
 }
 
 function getFilters() {
@@ -134,9 +175,10 @@ function getFilters() {
 function visibleRows() {
   const f = getFilters();
   return importState.rows.filter(row => {
+    if (!modeMatches(row)) return false;
     const item = row.item, identity = item.identity || {};
     if (f.form && item.formType !== f.form) return false;
-    if (f.status && row.status !== f.status) return false;
+    if (f.status && displayStatus(row) !== f.status) return false;
     if (f.kab && identity.kab !== f.kab) return false;
     if (f.start && row.tgl < f.start) return false;
     if (f.end && row.tgl > f.end) return false;
@@ -151,10 +193,10 @@ function visibleRows() {
 function renderImportSummary() {
   const all = importState.rows;
   const visible = visibleRows();
-  const selected = all.filter(row => row.selected).length;
-  const counts = all.reduce((out, row) => { out[row.status] = (out[row.status] || 0) + 1; return out; }, {});
+  const selected = all.filter(row => row.selected && modeMatches(row)).length;
+  const counts = all.filter(modeMatches).reduce((out, row) => { const status = displayStatus(row); out[status] = (out[status] || 0) + 1; return out; }, {});
   const meta = document.getElementById('toptImportMeta');
-  const coordinateCount = all.filter(row => hasValidCoordinates(row.item.identity)).length;
+  const coordinateCount = all.filter(row => modeMatches(row) && hasValidCoordinates(row.item.identity)).length;
   if (meta) meta.innerHTML = `<b>${all.length}</b> respons dibaca · tampil <b>${visible.length}</b> · dipilih <b>${selected}</b> · baru <b>${counts.baru || 0}</b> · sudah ada <b>${counts['sudah-ada'] || 0}</b> · duplikat hari <b>${counts['duplikat-hari'] || 0}</b> · duplikat file <b>${counts['duplikat-file'] || 0}</b> · unit belum ada <b>${counts['unit-baru'] || 0}</b> · koordinat valid <b>${coordinateCount}</b>`;
   const body = document.getElementById('toptImportRows');
   if (!body) return;
@@ -168,7 +210,7 @@ function renderImportSummary() {
       <td>${esc(row.tgl || '—')}</td>
       <td>${esc(item.sourceId)}</td>
       <td>${coordinateCell(row)}</td>
-      <td><span class="import-status ${row.status}">${statusLabel(row.status)}</span></td>
+      <td><span class="import-status ${displayStatus(row)}">${statusLabel(displayStatus(row))}</span></td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="text-center text-muted py-3">Tidak ada data yang cocok dengan filter.</td></tr>';
   const commit = document.getElementById('toptImportCommit');
@@ -184,7 +226,7 @@ function toggleTOptimalRow(key, checked) {
 function filterTOptimalPreview() { renderImportSummary(); }
 function selectAllTOptimal(checked) {
   visibleRows().forEach(row => {
-    const safeForNewImport = !['invalid', 'sudah-ada', 'duplikat-hari', 'duplikat-file'].includes(row.status);
+    const safeForNewImport = !['invalid', 'sudah-ada', 'duplikat-hari', 'duplikat-file', 'unit-baru'].includes(displayStatus(row));
     row.selected = checked && safeForNewImport;
   });
   renderImportSummary();
@@ -236,23 +278,53 @@ function importTOptimal(event) {
         list.sort((a, b) => String(b.sourceUpdatedAt).localeCompare(String(a.sourceUpdatedAt)) || String(b.tgl).localeCompare(String(a.tgl)));
         list.slice(1).forEach(row => { row.status = 'duplikat-file'; row.selected = false; });
       });
-      importState = { bundle, rows, filters: {} };
+      const sheetNames = (bundle.sheets || mapped.map(item => item.sheetName)).map(value => String(value).toLowerCase());
+      const suggestedMode = sheetNames.some(value => value.includes('naker') || value.includes('tenaga')) ? 'naker'
+        : sheetNames.some(value => value.includes('kdkmp') || value.includes('kdmp')) ? 'kdmp' : 'sppg';
+      importState = { bundle, rows, filters: {}, mode: suggestedMode };
+      const modeSelect = document.getElementById('toptProcessMode');
+      if (modeSelect) modeSelect.value = suggestedMode;
       const kabSelect = document.getElementById('toptFilterKab');
       if (kabSelect) {
         const values = [...new Set(importState.rows.map(row => row.item.identity?.kab).filter(Boolean))].sort();
         kabSelect.innerHTML = '<option value="">Semua Kabupaten/Kota</option>' + values.map(value => `<option>${esc(value)}</option>`).join('');
       }
-      resetTOptimalFilters(); openImportModal(); renderImportSummary();
+      resetTOptimalFilters(); openImportModal(); changeTOptimalMode();
     } catch (error) { toast(`File T-OPTIMAL tidak valid: ${error.message || error}`, 'e'); }
     finally { event.target.value = ''; }
   };
   reader.readAsText(file);
 }
 
+function commitCoordinateProcess() {
+  const selected = importState.rows.filter(row => row.selected && modeMatches(row) && hasValidCoordinates(row.item.identity));
+  if (!selected.length) { toast('Pilih minimal satu unit dengan koordinat valid.', 'e'); return; }
+  const unresolved = selected.filter(row => !findUnit(row.item.identity, row.item.formType === 'KDMP' ? 'KDMP' : 'SPPG'));
+  if (unresolved.length) { toast(`${unresolved.length} unit belum cocok. Sinkronisasi koordinat tidak membuat unit baru.`, 'e'); return; }
+  if (!window.confirm(`Perbarui koordinat ${new Set(selected.map(row => row.item.identity?.name).filter(Boolean)).size} Master Unit?\n\nTidak ada monitoring baru yang akan dibuat.`)) return;
+  const latestByUnit = new Map();
+  selected.forEach(row => {
+    const unit = findUnit(row.item.identity, row.item.formType === 'KDMP' ? 'KDMP' : 'SPPG');
+    if (!unit) return;
+    const previous = latestByUnit.get(unit.id);
+    if (!previous || String(row.tgl || '').localeCompare(String(previous.row.tgl || '')) >= 0) latestByUnit.set(unit.id, { row, unit });
+  });
+  let updated = 0;
+  latestByUnit.forEach(({ row, unit }) => {
+    const identity = row.item.identity;
+    unitsRepository.save(Object.assign({}, unit, { lat: coordinateValue(identity.lat), lng: coordinateValue(identity.lng) }));
+    updated += 1;
+  });
+  if (typeof renderAll === 'function') renderAll();
+  closeImportModal();
+  toast(`✅ ${updated} koordinat Master Unit diperbarui.`);
+}
+
 function commitTOptimalImport() {
   if (!CU) { toast('Silakan masuk ke DARMA-1 terlebih dahulu.', 'e'); return; }
-  if (CU.role !== 'admin') { toast('Impor T-OPTIMAL hanya dapat dilakukan oleh Admin.', 'e'); return; }
-  const selected = importState.rows.filter(row => row.selected && row.status !== 'invalid');
+  if (CU.role !== 'admin') { toast('Proses T-OPTIMAL hanya dapat dilakukan oleh Admin.', 'e'); return; }
+  if (importState.mode === 'coordinates') { commitCoordinateProcess(); return; }
+  const selected = importState.rows.filter(row => row.selected && modeMatches(row) && row.status !== 'invalid');
   const autoCreate = Boolean(document.getElementById('toptAutoCreateUnits')?.checked);
   const updateCoordinates = Boolean(document.getElementById('toptUpdateCoordinates')?.checked);
   const replaceSameDay = Boolean(document.getElementById('toptReplaceSameDay')?.checked);
@@ -261,7 +333,7 @@ function commitTOptimalImport() {
   if (fileDuplicates.length) { toast('Respons duplikat dalam file tidak dapat disimpan sebagai respons baru. Pilih baris terbaru saja.', 'e'); return; }
   const sameDayDuplicates = selected.filter(row => row.status === 'duplikat-hari');
   if (sameDayDuplicates.length && !replaceSameDay) { toast('Ada respons SPPG dengan unit dan tanggal yang sudah ada. Centang opsi perbarui rekaman tanggal sama jika ingin menggantinya.', 'e'); return; }
-  const missing = selected.filter(row => !findUnit(row.item.identity));
+  const missing = selected.filter(row => !findUnit(row.item.identity, row.item.formType === 'KDMP' ? 'KDMP' : 'SPPG'));
   if (missing.length && (!autoCreate || CU.role !== 'admin')) {
     toast('Ada unit belum cocok. Centang pembuatan unit otomatis dan gunakan akun Admin, atau hilangkan pilihan unit tersebut.', 'e'); return;
   }
@@ -275,7 +347,7 @@ function commitTOptimalImport() {
   let imported = 0, skipped = 0, createdUnits = 0;
   const resolved = [];
   selected.forEach(row => {
-    let unit = findUnit(row.item.identity);
+    let unit = findUnit(row.item.identity, row.item.formType === 'KDMP' ? 'KDMP' : 'SPPG');
     if (!unit && autoCreate && CU.role === 'admin') { unit = makeUnit(row.item); unitsRepository.save(unit); createdUnits += 1; }
     if (!unit) { skipped += 1; return; }
     resolved.push({ row, unit });
@@ -306,5 +378,5 @@ function commitTOptimalImport() {
 
 Object.assign(globalThis, {
   importTOptimal, openImportModal, closeImportModal, filterTOptimalPreview,
-  resetTOptimalFilters, selectAllTOptimal, toggleTOptimalRow, commitTOptimalImport
+  resetTOptimalFilters, selectAllTOptimal, toggleTOptimalRow, changeTOptimalMode, commitCoordinateProcess, commitTOptimalImport
 });

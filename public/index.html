@@ -302,7 +302,7 @@
       <button class="btn bd bsm" onclick="exportPdfUnits()"><i class="fas fa-file-pdf"></i> PDF</button>
       <button class="btn bs bsm" id="btnBackup" onclick="exportJSON()"><i class="fas fa-download"></i> Backup</button>
       <button class="btn bs bsm" id="btnRestore" onclick="document.getElementById('impJson').click()"><i class="fas fa-upload"></i> Restore</button>
-      <button class="btn bp bsm" id="btnImportTOptimal" onclick="document.getElementById('impTOptimal').click()"><i class="fas fa-file-import"></i> Impor T-OPTIMAL</button>
+      <button class="btn bp bsm" id="btnImportTOptimal" onclick="document.getElementById('impTOptimal').click()"><i class="fas fa-gears"></i> Proses T-OPTIMAL</button>
       <input type="file" id="impJson" accept=".json" style="display:none" onchange="importJSON(event)"/>
       <input type="file" id="impTOptimal" accept=".json,application/json" style="display:none" onchange="importTOptimal(event)"/>
     </div>
@@ -612,12 +612,22 @@
 <div id="mTOptimalImport" class="moverlay hidden">
   <div class="mbox wide" style="max-width:1120px">
     <div class="mhead">
-      <h3><i class="fas fa-file-import"></i> Impor Data T-OPTIMAL</h3>
+      <h3><i class="fas fa-gears"></i> Proses T-OPTIMAL</h3>
       <button class="mclose" onclick="closeImportModal()">×</button>
     </div>
     <div class="mbody">
       <div class="import-explain">
         <b>Alur impor terkontrol:</b> file JSON T-OPTIMAL dibaca terlebih dahulu sebagai pratinjau. Pilih respons yang diperlukan, lalu simpan ke DARMA-1. Nilai keuangan dinormalisasi dari Rupiah penuh ke skala instrumen DARMA-1: Rp Juta, Rp Ribu/kg, atau Rupiah penuh.
+      </div>
+      <div class="import-mode-panel">
+        <label class="fl" for="toptProcessMode">Mode Proses T-OPTIMAL</label>
+        <select id="toptProcessMode" class="fc" onchange="changeTOptimalMode()">
+          <option value="coordinates">Sinkronisasi Koordinat Master Unit</option>
+          <option value="sppg">Monitoring SPPG/MBG</option>
+          <option value="naker">Monitoring Tenaga Kerja</option>
+          <option value="kdmp">Monitoring KDMP</option>
+        </select>
+        <div class="fhint" id="toptModeHelp">Hanya menampilkan respons yang memiliki koordinat dan mencocokkannya dengan Master Unit. Tidak membuat monitoring baru.</div>
       </div>
       <div class="import-count" id="toptImportMeta">Belum ada data.</div>
       <div class="import-toolbar">
@@ -625,7 +635,7 @@
           <option value="">Semua Formulir</option><option value="SPPG">SPPG / MBG</option><option value="NAKER">Tenaga Kerja</option>
         </select>
         <select id="toptFilterStatus" class="fc" onchange="filterTOptimalPreview()">
-          <option value="">Semua Status</option><option value="baru">Data Baru</option><option value="sudah-ada">Sudah Ada</option><option value="duplikat-hari">Duplikat SPPG/Hari</option><option value="duplikat-file">Duplikat Dalam File</option><option value="unit-baru">Unit Belum Ada</option><option value="tanpa-unit">Nama Unit Kosong</option>
+          <option value="">Semua Status</option><option value="baru">Data Baru</option><option value="siap-koordinat">Siap Update Koordinat</option><option value="sudah-ada">Sudah Ada</option><option value="duplikat-hari">Duplikat SPPG/Hari</option><option value="duplikat-file">Duplikat Dalam File</option><option value="unit-baru">Unit Belum Ada</option><option value="tanpa-unit">Nama Unit Kosong</option>
         </select>
         <select id="toptFilterKab" class="fc" onchange="filterTOptimalPreview()"><option value="">Semua Kabupaten/Kota</option></select>
         <input id="toptFilterStart" type="date" class="fc" onchange="filterTOptimalPreview()" title="Tanggal awal"/>

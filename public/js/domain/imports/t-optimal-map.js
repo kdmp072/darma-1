@@ -241,6 +241,21 @@ function mapSppg(raw, fileUrl = '') {
   return f;
 }
 
+function mapKdmp(raw) {
+  const scoreEntries = Object.entries(raw || {}).filter(([key, value]) => /^(m\d+|d\d+|gerai\d+|gudang\d+|sarpras\d+|pengurus\d+|persediaan\d+|lahan\d+|dampak\d+)$/i.test(key) && value !== '' && value !== null && value !== undefined);
+  const scores = scoreEntries.map(([, value]) => Number(value)).filter(value => Number.isFinite(value) && value >= 1 && value <= 4);
+  const avg = scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : null;
+  const kategori = avg == null ? null : avg >= 3.26 ? 'Sangat Baik' : avg >= 2.51 ? 'Baik' : avg >= 1.76 ? 'Kurang Baik' : 'Sangat Kurang';
+  const hasil = avg == null ? 'sudah' : avg >= 2.51 ? 'baik' : avg >= 1.76 ? 'perbaikan' : 'kritis';
+  return {
+    nib: text(raw.a_nib), npwp: cleanChoice(raw.a_npwp), bidang_usaha: text(raw.a_bidangUsaha),
+    status_bangun: text(raw.a_statusPembangunan), prov: canonicalProvince(first(raw, 'provinsi', 'provinsiSurvei')),
+    desa: text(first(raw, 'desa', 'desaSurvei')), resp_nama: text(raw.b_namaResponden), resp_hp: text(raw.b_noHP), resp_jenis: text(raw.b_jenisResponden),
+    sections: [{ kode: 'REMOTE', judul: 'Kuesioner KDMP T-OPTIMAL', scores }], compliance: [], avg, kategori, hasil,
+    remoteScores: Object.fromEntries(scoreEntries)
+  };
+}
+
 function mapNaker(raw) {
   return {
     nk101: text(first(raw, 'q101_namaResponden', 'namaResponden')), nk102: cleanChoice(first(raw, 'q102_jabatan', 'jabatan')), nk102_lain: text(raw.q102_jabatanLainnya),
@@ -285,19 +300,29 @@ function mapNaker(raw) {
 
 export function detectTOptimalType(record) {
   const sheet = String(record?.sheetName || record?.sheet || '').toLowerCase();
-  return sheet.includes('naker') || sheet.includes('tenaga') ? 'NAKER' : 'SPPG';
+  if (sheet.includes('naker') || sheet.includes('tenaga')) return 'NAKER';
+  if (sheet.includes('kdkmp') || sheet.includes('kdmp')) return 'KDMP';
+  return 'SPPG';
 }
 
 export function mapTOptimalRecord(record) {
   const raw = record?.formData || record?.response?.formData || {};
   const formType = detectTOptimalType(record);
   const fileUrl = record?.fileUrl || record?.response?.fileUrl || '';
-  const fields = formType === 'NAKER' ? mapNaker(raw) : mapSppg(raw, fileUrl);
-  const name = formType === 'NAKER' ? text(first(raw, 'q105_namaSPPG', 'namaSPPG')) : text(first(raw, 'q101_namaSPPG', 'namaSPPG'));
+  const fields = formType === 'NAKER' ? mapNaker(raw) : formType === 'KDMP' ? mapKdmp(raw) : mapSppg(raw, fileUrl);
+  const name = formType === 'NAKER'
+    ? text(first(raw, 'q105_namaSPPG', 'namaSPPG'))
+    : formType === 'KDMP'
+      ? text(first(raw, 'a_namaKDMP', 'namaKDMP'))
+      : text(first(raw, 'q101_namaSPPG', 'namaSPPG'));
   const kec = text(first(raw, 'kecamatan', 'kecamatanSurvei'));
   const kab = canonicalKabupaten(first(raw, 'kabkota', 'kabupaten', 'kabupatenSurvei'), kec);
   const desa = text(first(raw, 'desa', 'desaSurvei'));
-  const tgl = formType === 'SPPG' ? text(first(raw, 'q110_tglWawancara', 'tglWawancara')) : text(first(raw, 'tanggalWawancara', 'tglWawancara', 'tanggal'));
+  const tgl = formType === 'SPPG'
+    ? text(first(raw, 'q110_tglWawancara', 'tglWawancara'))
+    : formType === 'KDMP'
+      ? text(first(raw, 'a_tanggalSurvei', 'tanggalSurvei', 'tanggal'))
+      : text(first(raw, 'tanggalWawancara', 'tglWawancara', 'tanggal'));
   const sourceId = String(record?.sourceId || record?.id || record?.responseId || '');
   const sheetName = String(record?.sheetName || record?.sheet || (formType === 'NAKER' ? TOPTIMAL_SHEETS.NAKER : TOPTIMAL_SHEETS.SPPG));
   return {
