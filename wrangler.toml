@@ -1,0 +1,13 @@
+name = "darma-1"
+main = "worker.js"
+compatibility_date = "2026-08-11"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# WAJIB: ganti dengan database_id dari perintah `npx wrangler d1 create darma`.
+[[d1_databases]]
+binding = "DB"
+database_name = "darma"
+database_id = "b968813f-763e-4701-9445-fddf557da99c"

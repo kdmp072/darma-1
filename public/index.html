@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DARMA-1 | Dashboard Akurat Reporting Manajemen Aplikasi SPPG dan KDMP Wilayah Pekalongan</title>
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@7.1.1/build/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script type="module" src="./js/features/reports/managerial/index.js"></script>
+<script type="module" src="./js/features/reports/operational/index.js"></script>
+<link rel="stylesheet" href="./styles/00-base.css">
+<link rel="stylesheet" href="./styles/10-map.css">
+<link rel="stylesheet" href="./styles/20-shell-components.css">
+<link rel="stylesheet" href="./styles/30-monitoring-forms.css">
+<link rel="stylesheet" href="./styles/40-responsive-overrides.css">
+<link rel="stylesheet" href="./styles/50-unit-search.css">
+<link rel="stylesheet" href="./styles/60-reports.css">
+<link rel="stylesheet" href="./styles/70-print.css">
+<link rel="stylesheet" href="./styles/80-imports.css">
+</head>
+<body>
+
+<div id="mapRoot"><div id="map"></div></div>
+
+<!-- badge counter -->
+<div id="cntBadge"><i class="fas fa-map-marker-alt" style="color:var(--brand)"></i><span id="cntTxt">—</span></div>
+<div id="modeBadge" style="position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:150;display:none;font-size:9.5px;font-weight:800;padding:4px 11px;border-radius:99px;border:1px solid var(--border);box-shadow:var(--sh)"></div>
+
+<!-- map controls -->
+<div class="map-ctrl" id="mapCtrl">
+  <button class="mbtn" onclick="resetView()"><i class="fas fa-compress"></i> Semua Unit</button>
+  <button class="mbtn" onclick="toggleLayer()"><i class="fas fa-layer-group"></i> <span id="layerLbl">Satelit</span></button>
+  <div style="position:relative">
+    <button class="mbtn" onclick="document.getElementById('boundMenu').classList.toggle('show')"><i class="fas fa-draw-polygon"></i> <span id="boundLbl">Wilayah Kerja</span></button>
+    <div id="boundMenu" class="bound-popup">
+      <div class="bp-item" onclick="selectRegion('')">📍 Tampilkan Semua</div>
+      <div class="bp-item" onclick="selectRegion('Kota Pekalongan')">🔵 Kota Pekalongan</div>
+      <div class="bp-item" onclick="selectRegion('Kab. Pekalongan')">🟢 Kab. Pekalongan</div>
+      <div class="bp-item" onclick="selectRegion('Kab. Batang')">🟠 Kab. Batang</div>
+    </div>
+  </div>
+  <button class="mbtn" onclick="exportXlsx()"><i class="fas fa-file-excel" style="color:var(--ok)"></i> Export Excel</button>
+</div>
+
+<!-- legend (collapsible) -->
+<div id="legendBox" class="legend-box collapsed" style="max-height:75vh;overflow-y:auto">
+  <div class="lg-header" onclick="toggleLegendMenu()" title="Klik untuk membuka/menutup legenda">
+    <div class="lg-head-title">
+      <i class="fas fa-map-marked-alt" style="color:var(--brand)"></i>
+      <span>Legenda & Filter Peta</span>
+    </div>
+    <i class="fas fa-chevron-up lg-arrow-icon" id="lgToggleArr"></i>
+  </div>
+  <div class="lg-body" id="legendBody">
+    <!-- 1. FILTER WILAYAH MURNI -->
+    <div class="lg-sec-title">1. Wilayah Murni (Warna Asli Biru & Merah):</div>
+    <div class="lg-filter-chips">
+      <button type="button" class="lg-chip lg-chip-view" id="lfc_murni_all" onclick="setMapView('murni', '', 'all')">🗺️ Semua (Biru/Merah)</button>
+      <button type="button" class="lg-chip lg-chip-view" id="lfc_murni_sppg" onclick="setMapView('murni', 'SPPG', 'all')">🔵 Seluruh SPPG</button>
+      <button type="button" class="lg-chip lg-chip-view" id="lfc_murni_kdmp" onclick="setMapView('murni', 'KDMP', 'all')">🔴 Seluruh KDMP</button>
+    </div>
+
+    <!-- 2. FILTER PROGRES MONITORING -->
+    <div class="lg-sec-title" style="margin-top:8px">2. Progres Monitoring (Ada Warna Hijau):</div>
+    <div class="lg-filter-chips">
+      <button type="button" class="lg-chip lg-chip-view on" id="lfc_prog_all" onclick="setMapView('progres', '', 'all')">🏷️ Semua Progres</button>
+      <button type="button" class="lg-chip lg-chip-view" id="lfc_prog_mon" onclick="setMapView('progres', '', 'mon')">🟢 Sudah Dimonitor</button>
+      <button type="button" class="lg-chip lg-chip-view" id="lfc_prog_unmon_sppg" onclick="setMapView('progres', '', 'unmon_sppg')">🔵 SPPG Belum</button>
+      <button type="button" class="lg-chip lg-chip-view" id="lfc_prog_unmon_kdmp" onclick="setMapView('progres', '', 'unmon_kdmp')">🔴 KDMP Belum</button>
+    </div>
+
+    <!-- 3. FILTER FREKUENSI MINIMAL (>= X KALI) -->
+    <div class="lg-sec-title" style="margin-top:8px">3. Filter Frekuensi (Minimal &ge; X Kali):</div>
+    <div class="lg-filter-chips">
+      <button type="button" class="lg-chip lg-chip-freq on" id="lff_all" onclick="setFreqFilter(null)">Semua</button>
+      <button type="button" class="lg-chip lg-chip-freq" id="lff_0" onclick="setFreqFilter(0)">○ 0 Kali</button>
+      <button type="button" class="lg-chip lg-chip-freq" id="lff_1" onclick="setFreqFilter(1)">◎ 1+ Kali</button>
+      <button type="button" class="lg-chip lg-chip-freq" id="lff_2" onclick="setFreqFilter(2)">◎◎ 2+ Kali</button>
+      <button type="button" class="lg-chip lg-chip-freq" id="lff_3" onclick="setFreqFilter(3)">◎◎◎ 3+ Kali</button>
+      <button type="button" class="lg-chip lg-chip-freq" id="lff_4" onclick="setFreqFilter(4)">◎◎◎◎ 4+ Kali</button>
+      <button type="button" class="lg-chip lg-chip-freq" id="lff_5" onclick="setFreqFilter(5)">◎◎◎◎◎ 5+ Kali</button>
+    </div>
+
+    <!-- 4. LEGENDA CINCIN FREKUENSI -->
+    <div class="lg-sec-title" style="margin-top:8px">Legenda Cincin Frekuensi Kunjungan:</div>
+    <div class="lg-sub-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px;color:var(--text2);line-height:1.4">
+      <div>○ Tanpa Cincin = <b>0 Kali</b></div>
+      <div>◎ 1 Cincin = <b>1 Kali</b></div>
+      <div>◎◎ 2 Cincin = <b>2 Kali</b></div>
+      <div>◎◎◎ 3 Cincin = <b>3 Kali</b></div>
+      <div>◎◎◎◎ 4 Cincin = <b>4 Kali</b></div>
+      <div>◎◎◎◎◎ 5 Cincin = <b>5+ Kali</b></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginOverlay">
+  <div class="lbox">
+    <div class="llogo"><img src="./favicon.svg" alt="Logo piring, garpu, dan sendok DARMA-1"></div>
+    <div class="ltitle">DARMA-1</div>
+    <div class="lsub">Dashboard Akurat Reporting Manajemen Aplikasi<br><b style="color:var(--text2)">SPPG dan KDMP Wilayah Pekalongan</b><br>Memberi Tanpa Ragu, Mengabdi Dengan Ilmu</div>
+    <div class="linp"><i class="fas fa-user-tag"></i>
+      <select id="lRole"><option value="">— Pilih Role —</option><option value="admin">⚙️ Admin / Koordinator</option><option value="petugas">🔍 Petugas Monitoring</option></select>
+    </div>
+    <div class="linp"><i class="fas fa-user"></i><input type="text" id="lUser" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <div class="linp"><i class="fas fa-lock"></i><input type="password" id="lPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <button class="lbtn" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Masuk Sistem</button>
+    <div class="lerr" id="lErr"></div>
+  </div>
+</div>
+
+<!-- ================= HEADER ================= -->
+<div id="hdr">
+  <button class="hbtn" id="burger" onclick="toggleSB()" title="Menu"><i class="fas fa-bars"></i></button>
+  <div class="hbrand">
+    <img class="brand-mark" src="./favicon.svg" alt="" aria-hidden="true">
+    <div class="hlogo"><span>DARMA-1</span><small>Dashboard Akurat Reporting Manajemen Aplikasi SPPG & KDMP Wilayah Pekalongan</small></div>
+  </div>
+  <div class="huser"><strong id="hName">—</strong><span id="hRole">—</span></div>
+  <button class="hbtn" id="usrBtn" onclick="openUsersModal()" title="Manajemen Pengguna" style="display:none"><i class="fas fa-users"></i></button>
+  <button class="hbtn" onclick="toggleTheme()" id="themeBtn" title="Gelap/Terang"><i class="fas fa-moon"></i></button>
+  <button class="hlogout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+</div>
+
+<!-- ================= SIDEBAR ================= -->
+<div id="sidebar">
+  <!-- HEADER BAR NAVIGASI -->
+  <div class="sidebar-top-bar" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border)">
+    <div style="font-size:11.5px;font-weight:800;color:var(--text2)"><i class="fas fa-layer-group" style="color:var(--brand)"></i> MENU NAVIGASI</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="fp-reset" onclick="clearFilters()" title="Reset Semua Filter">✕ Reset Filter</button>
+      <button class="fp-reset" onclick="toggleSB(false)" style="color:var(--bad);border-color:var(--border)" title="Tutup Panel">✕ Tutup</button>
+    </div>
+  </div>
+
+  <!-- SELECTED UNIT CARD -->
+  <div class="sel-card" id="selCard">
+    <div class="sc-top">
+      <div class="sc-icon" id="scIcon">🍳</div>
+      <div class="sc-info">
+        <div class="sc-main" id="scMain">—</div>
+        <div class="sc-sub" id="scSub">—</div>
+      </div>
+      <div class="sc-chip" id="scChip">—</div>
+      <button class="sc-close" onclick="clearSel()">×</button>
+    </div>
+    <div class="sc-stats">
+      <div class="sc-stat"><div class="sc-stat-n" id="scMon">0</div><div class="sc-stat-l">Monitoring</div></div>
+      <div class="sc-stat"><div class="sc-stat-n" id="scLast">—</div><div class="sc-stat-l">Tgl Terakhir</div></div>
+      <div class="sc-stat"><div class="sc-stat-n" id="scKritis">0</div><div class="sc-stat-l">Temuan Kritis</div></div>
+    </div>
+    <div class="sc-tip" id="scTip"><i class="fas fa-lightbulb"></i> —</div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tbar">
+    <button class="tbtn on" onclick="goTab('dash')" data-t="dash"><i class="fas fa-chart-pie"></i>Dashboard</button>
+    <button class="tbtn" onclick="goTab('rekam')" data-t="rekam"><i class="fas fa-clipboard-check"></i>Monitoring</button>
+    <button class="tbtn" onclick="goTab('unit')" data-t="unit"><i class="fas fa-database"></i>Master Unit</button>
+    <button class="tbtn" onclick="goTab('hist')" data-t="hist"><i class="fas fa-history"></i>Histori</button>
+    <button class="tbtn" id="btnReportTab" onclick="goTab('laporan')" data-t="laporan"><i class="fas fa-file-powerpoint"></i>Laporan</button>
+  </div>
+
+  <!-- TAB: DASHBOARD -->
+  <div class="tcont on" id="tab-dash">
+    <div id="dashBanner"></div>
+    <div class="sgrid">
+      <!-- 1. SPPG -->
+      <div class="sbox r" title="Total Dapur MBG Terdaftar"><div class="snum" id="stSPPG">0</div><div class="slbl">SPPG / Dapur MBG</div><span class="sico">🍳</span></div>
+      <!-- 2. KDMP -->
+      <div class="sbox b" title="Total Koperasi Terdaftar"><div class="snum" id="stKDMP">0</div><div class="slbl">KDMP Koperasi</div><span class="sico">🏪</span></div>
+      <!-- 3. MONITORING -->
+      <div class="sbox o" title="Total Catatan Monitoring Tersimpan"><div class="snum" id="stMon">0</div><div class="slbl">Total Monitoring</div><span class="sico">📋</span></div>
+      <!-- 4. AKTIF / OPERASIONAL -->
+      <div class="sbox g" title="Unit Berstatus Aktif / Operasional"><div class="snum" id="stOper">0</div><div class="slbl">Aktif / Operasional</div><div class="ssub" id="stOperSub">—</div><span class="sico">✅</span></div>
+      <!-- 5. DALAM PERSIAPAN -->
+      <div class="sbox y" title="Unit Berstatus Dalam Persiapan"><div class="snum" id="stPrep">0</div><div class="slbl">Dalam Persiapan</div><div class="ssub" id="stPrepSub">—</div><span class="sico">🟡</span></div>
+      <!-- 6. RENCANA / USULAN -->
+      <div class="sbox p" title="Unit Berstatus Rencana / Usulan"><div class="snum" id="stPlan">0</div><div class="slbl">Rencana / Usulan</div><div class="ssub" id="stPlanSub">—</div><span class="sico">⚪</span></div>
+    </div>
+
+    <div class="dash-charts-grid">
+      <div>
+        <div class="sec-title" style="margin-top:0"><i class="fas fa-chart-bar"></i> Progres Cakupan Monitoring (Sudah vs Belum)</div>
+        <div id="hasilBars"></div>
+      </div>
+      <div>
+        <div class="sec-title" style="margin-top:0"><i class="fas fa-map-marked-alt"></i> Unit per Kabupaten/Kota</div>
+        <div id="kabBars"></div>
+      </div>
+    </div>
+
+    <div class="sec-title"><i class="fas fa-bullseye"></i> Target Sasaran Unit Belum Dimonitor</div>
+    <div id="attnList"></div>
+
+    <div class="sec-title"><i class="fas fa-clock"></i> Monitoring Terbaru</div>
+    <div id="recentMon"></div>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn bp" style="flex:1;min-width:210px" onclick="exportPdfDash()"><i class="fas fa-file-pdf"></i> Ringkasan PDF</button>
+      <button class="btn bg" style="flex:1;min-width:210px" onclick="exportXlsx('unit')"><i class="fas fa-file-excel"></i> Data Excel</button>
+      <button class="btn bs" id="btnDashReport" style="flex:1;min-width:210px;background:linear-gradient(135deg,#0b1f3a,#2563eb);color:#fff" onclick="goTab('laporan')"><i class="fas fa-file-powerpoint"></i> Buat Laporan Manajemen</button>
+    </div>
+  </div>
+
+  <!-- TAB: REKAM MONITORING -->
+  <div class="tcont" id="tab-rekam">
+    <!-- BARIS KUNJUNGAN: UNIT, TANGGAL, PETUGAS TIM -->
+    <div class="rekam-top-row" style="display:grid;grid-template-columns:2fr 1fr 1.5fr;gap:12px;margin-bottom:12px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Unit Dimonitor <span class="rq">*</span></label>
+        <div class="unit-picker" id="monitoringUnitPicker" onclick="event.stopPropagation()">
+          <div class="unit-search-main">
+            <i class="fas fa-search"></i>
+            <input type="search" id="rUnitSearch" class="fc unit-search-input" autocomplete="off" placeholder="Cari nama, ID, desa, kecamatan..." onfocus="searchMonitoringUnits()" oninput="searchMonitoringUnits()" onkeydown="monitoringUnitSearchKey(event)"/>
+            <button type="button" class="unit-search-clear" onclick="clearMonitoringUnitSearch(event)" title="Hapus pencarian">×</button>
+          </div>
+          <div class="unit-filter-row">
+            <select id="rUnitJenis" class="fc" onchange="searchMonitoringUnits()"><option value="">Semua Jenis</option><option value="SPPG">🍳 SPPG</option><option value="KDMP">🏪 KDMP</option></select>
+            <select id="rUnitKab" class="fc" onchange="searchMonitoringUnits()"><option value="">Semua Wilayah</option><option>Kota Pekalongan</option><option>Kab. Pekalongan</option><option>Kab. Batang</option></select>
+          </div>
+          <div class="unit-search-meta" id="rUnitSearchMeta">Ketik nama, ID SPPG, desa, atau kecamatan.</div>
+          <div class="unit-results" id="rUnitResults"></div>
+        </div>
+        <select id="rUnit" class="fc" onchange="onUnitPick()" style="display:none"></select>
+        <div class="fhint" id="unitInfo">Cari lalu pilih unit SPPG atau KDMP yang dikunjungi.</div>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Tanggal Kunjungan <span class="rq">*</span></label>
+        <input type="date" id="rTgl" class="fc"/>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Nama Petugas <span class="rq">*</span></label>
+        <div class="ms-wrap" id="wrap_rPetugas">
+          <div class="ms-trigger fc" onclick="toggleMS('rPetugas', event)">
+            <div class="ms-labels" id="lbl_rPetugas"><span class="ms-placeholder">Pilih petugas / input baru...</span></div>
+            <i class="fas fa-chevron-down ms-arrow"></i>
+          </div>
+          <input type="hidden" id="rPetugas" value="" />
+          <div class="ms-dropdown" id="drop_rPetugas" onclick="event.stopPropagation()">
+            <div class="ms-head">
+              <div class="ms-search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" class="ms-search" placeholder="Cari nama..." oninput="filterMS('rPetugas', this.value)"/>
+              </div>
+              <div class="ms-actions">
+                <button type="button" class="ms-btn-act" onclick="selectAllMS('rPetugas', true)">✓ Semua</button>
+                <button type="button" class="ms-btn-act" onclick="selectAllMS('rPetugas', false)">✕ Reset</button>
+              </div>
+            </div>
+            <div class="ms-list" id="list_rPetugas"></div>
+            <div class="ms-foot">
+              <div class="ms-custom-wrap">
+                <input type="text" id="cust_rPetugas" placeholder="+ Input nama langsung..." class="ms-custom-inp" onkeydown="if(event.key==='Enter'){addCustomMS('rPetugas');event.preventDefault();}"/>
+                <button type="button" class="ms-custom-btn" onclick="addCustomMS('rPetugas')">Tambah</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sec-title" style="margin-top:4px"><i class="fas fa-clipboard-check"></i> Kuesioner Monitoring <span class="rq">*</span><span id="rekamJenisTag" style="color:var(--text3);font-weight:700;text-transform:none;letter-spacing:0"></span></div>
+    <div id="rekamForm"><div class="empty"><i class="fas fa-clipboard-list"></i><p>Pilih unit terlebih dahulu untuk memunculkan kuesioner sesuai jenis unit (SPPG / KDMP).</p></div></div>
+    <div class="fg" id="hasilPreviewWrap" style="display:none">
+      <label class="fl">Hasil Monitoring (otomatis)</label>
+      <div id="hasilPreview" style="padding:9px 12px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid var(--border)"></div>
+    </div>
+    <div class="surveyor-analysis">
+      <div class="sec-title"><i class="fas fa-user-check"></i> Analisis Surveyor</div>
+      <div class="rekam-notes-row">
+        <div class="fg">
+          <label class="fl">Catatan / Analisis Surveyor atas hasil survei ini</label>
+          <textarea id="rTemuan" class="fc" placeholder="Tuliskan analisis, temuan, atau catatan penting surveyor"></textarea>
+        </div>
+        <div class="fg">
+          <label class="fl">Rekomendasi / Tindak Lanjut</label>
+          <textarea id="rRekom" class="fc" placeholder="Tuliskan rekomendasi dan tindak lanjut yang diperlukan"></textarea>
+        </div>
+      </div>
+    </div>
+    <button class="btn bp bblk" onclick="saveMonitoring()"><i class="fas fa-save"></i> Simpan Hasil Monitoring</button>
+    <div class="frow" style="margin-top:6px">
+      <button class="btn bs bsm" onclick="cetakRekam('isi')" style="flex:1"><i class="fas fa-file-pdf"></i> PDF Terisi</button>
+      <button class="btn bs bsm" onclick="cetakRekamDocx('isi')" style="flex:1"><i class="fas fa-file-word"></i> DOCX</button>
+      <button class="btn bg bsm" onclick="unduhFormExcelRekam()" style="flex:1"><i class="fas fa-file-excel"></i> Excel</button>
+    </div>
+    <div class="fhint" style="margin-top:8px;text-align:center"><b>Output = file PDF/Excel yang terunduh (bukan screenshot).</b> PDF Kosong = blanko untuk survei lapangan. Excel = form persis struktur di workspace. KDMP: hasil dari skor rata-rata (1–4).</div>
+  </div>
+
+  <!-- TAB: MASTER UNIT -->
+  <div class="tcont" id="tab-unit">
+    <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap">
+      <button class="btn bp bsm" id="btnAddUnit" onclick="openUnitModal()"><i class="fas fa-plus"></i> Tambah Unit</button>
+      <button class="btn bg bsm" onclick="exportXlsx('unit')"><i class="fas fa-file-excel"></i> Excel</button>
+      <button class="btn bd bsm" onclick="exportPdfUnits()"><i class="fas fa-file-pdf"></i> PDF</button>
+      <button class="btn bs bsm" id="btnBackup" onclick="exportJSON()"><i class="fas fa-download"></i> Backup</button>
+      <button class="btn bs bsm" id="btnRestore" onclick="document.getElementById('impJson').click()"><i class="fas fa-upload"></i> Restore</button>
+      <button class="btn bp bsm" id="btnImportTOptimal" onclick="document.getElementById('impTOptimal').click()"><i class="fas fa-file-import"></i> Impor T-OPTIMAL</button>
+      <input type="file" id="impJson" accept=".json" style="display:none" onchange="importJSON(event)"/>
+      <input type="file" id="impTOptimal" accept=".json,application/json" style="display:none" onchange="importTOptimal(event)"/>
+    </div>
+    <!-- FILTER LIST MASTER UNIT -->
+    <div class="list-search-bar" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      <div style="flex:2;min-width:180px;position:relative">
+        <i class="fas fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:11px"></i>
+        <input type="text" id="fdSearch" class="fc" placeholder="Cari nama unit / desa / kecamatan..." style="padding-left:30px" oninput="onFilterChange()"/>
+      </div>
+      <select id="fdKab" class="fc" style="flex:1;min-width:140px" onchange="onFilterChange(); renderBoundaries(this.value);">
+        <option value="">📍 Semua Kabupaten/Kota</option>
+      </select>
+      <select id="fdJenis" class="fc" style="flex:1;min-width:120px" onchange="onFilterChange()">
+        <option value="">🏷️ Semua Jenis</option>
+        <option value="SPPG">🍳 SPPG (Dapur)</option>
+        <option value="KDMP">🏪 KDMP (Koperasi)</option>
+      </select>
+      <input type="hidden" id="fdHasil" value="" />
+    </div>
+    <div class="fhint" style="margin:-4px 0 8px">⬇️ Output Excel/PDF master mengikuti filter jenis, kabupaten, dan pencarian di atas.</div>
+    <div class="fhint" style="margin-bottom:9px">💡 Klik kartu untuk melihat posisi di peta.</div>
+    <div id="unitList"></div>
+  </div>
+
+  <!-- TAB: HISTORI -->
+  <div class="tcont" id="tab-hist">
+    <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap">
+      <select id="fHUnit" class="fc" style="flex:2;min-width:140px" onchange="renderHist()"><option value="">Semua Unit</option></select>
+      <input type="date" id="fHTgl" class="fc" style="flex:1;min-width:130px" onchange="renderHist()"/>
+      <button class="btn bx" onclick="document.getElementById('fHUnit').value='';document.getElementById('fHTgl').value='';renderHist();" title="Reset Filter">✕ Reset</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="btn bg bsm" onclick="exportXlsx('monitoring',true)"><i class="fas fa-file-excel"></i> Excel</button>
+      <button class="btn bd bsm" onclick="exportPdfMonitoring()"><i class="fas fa-file-pdf"></i> PDF</button>
+      <button class="btn bd bsm" id="btnClearMon" onclick="confirmClearMon()" style="margin-left:auto"><i class="fas fa-trash"></i> Hapus Semua</button>
+    </div>
+    <div class="fhint" style="margin:-4px 0 8px">⬇️ Output Excel/PDF histori <b>mengikuti filter</b> (unit, tanggal) yang dipilih di atas.</div>
+    <div id="histList"></div>
+  </div>
+
+  <!-- TAB: LAPORAN MANAJEMEN -->
+  <div class="tcont" id="tab-laporan">
+    <div class="rpt-hero">
+      <h3><i class="fas fa-chart-line"></i> Laporan Manajemen Otomatis</h3>
+      <p>Rekap, peta analitis, rasio wilayah, grafik donut/kolom/garis/radar, narasi kondisi lapangan, unit prioritas, dan rekomendasi disusun otomatis menjadi PowerPoint modern untuk pengambilan keputusan.</p>
+    </div>
+
+    <div class="rpt-panel">
+      <div class="rpt-panel-title"><i class="fas fa-folder-open"></i> Pilih Modul Laporan</div>
+      <div class="rpt-report-grid">
+        <div class="rpt-report-card active" data-report-section="managerial" role="button" tabindex="0"><div class="ri">📊</div><b>PPT Manajerial</b><small>Analisis, peta, grafik, narasi, prioritas, dan rekomendasi pimpinan.</small></div>
+        <div class="rpt-report-card" data-report-section="unmonitored" role="button" tabindex="0"><div class="ri">⚠️</div><b>Laporan Belum Dimonitor</b><small>Daftar target kunjungan, prioritas, PIC, lokasi, PDF, dan Excel.</small></div>
+        <div class="rpt-report-card" data-report-section="monitored" role="button" tabindex="0"><div class="ri">✅</div><b>Laporan Sudah Dimonitor</b><small>Rekap kunjungan, hasil terakhir, temuan, tindak lanjut, PDF, dan Excel.</small></div>
+      </div>
+    </div>
+
+    <div class="rpt-panel rpt-managerial-only">
+      <div class="rpt-panel-title"><i class="fas fa-layer-group"></i> 1. Pilih Jenis Presentasi</div>
+      <div class="rpt-type-grid">
+        <div class="rpt-type-card active" data-kind="sppg" onclick="selectReportKind('sppg')">
+          <div class="ri">🍳</div><b>SPPG & Tenaga Kerja</b><small>Penerima, sekolah, operasional, keamanan pangan, Naker, temuan, dan rekomendasi.</small>
+        </div>
+        <div class="rpt-type-card" data-kind="kdmp" onclick="selectReportKind('kdmp')">
+          <div class="ri">🏪</div><b>KDMP</b><small>Skor delapan dimensi, kepatuhan, tata kelola, dampak, prioritas, dan rekomendasi.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="rpt-panel rpt-managerial-only">
+      <div class="rpt-panel-title"><i class="fas fa-sliders-h"></i> 2. Konfigurasi Laporan</div>
+      <div class="rpt-form-grid">
+        <div class="fg rpt-span-2"><label class="fl">Judul Presentasi</label><input id="rptTitle" class="fc" value="Laporan Manajemen Monitoring SPPG dan Tenaga Kerja" oninput="markReportStale()"/></div>
+        <div class="fg"><label class="fl">Tanggal Awal</label><input id="rptStart" type="date" class="fc" onchange="markReportStale()"/></div>
+        <div class="fg"><label class="fl">Tanggal Akhir</label><input id="rptEnd" type="date" class="fc" onchange="markReportStale()"/></div>
+        <div class="fg"><label class="fl">Wilayah</label><select id="rptRegion" class="fc" onchange="markReportStale()"><option value="">Semua Kabupaten/Kota</option><option>Kota Pekalongan</option><option>Kab. Pekalongan</option><option>Kab. Batang</option></select></div>
+        <div class="fg"><label class="fl">Kedalaman Presentasi</label><select id="rptMode" class="fc" onchange="markReportStale()"><option value="ringkas">Ringkas — sekitar 8 slide</option><option value="lengkap" selected>Lengkap — 11–13 slide</option></select></div>
+        <div class="fg"><label class="fl">Nama Penyusun</label><input id="rptAuthor" class="fc" value="Tim Monitoring DARMA-1" oninput="markReportStale()"/></div>
+        <div class="fg"><label class="fl">Instansi / Organisasi</label><input id="rptOrg" class="fc" value="DARMA-1 — Dashboard Akurat Reporting Manajemen Aplikasi" oninput="markReportStale()"/></div>
+      </div>
+    </div>
+
+    <div class="rpt-panel rpt-managerial-only">
+      <div class="rpt-panel-title"><i class="fas fa-calculator"></i> 3. Pratinjau Rekap Otomatis</div>
+      <div class="rpt-kpis" id="rptKpis"></div>
+      <div class="fg"><label class="fl">Narasi Ringkasan Eksekutif <span class="fhint">— otomatis, dapat diedit</span></label><textarea id="rptNarrative" class="fc rpt-editor"></textarea></div>
+      <div class="fg"><label class="fl">Rekomendasi Manajerial <span class="fhint">— otomatis, dapat diedit</span></label><textarea id="rptRecommendations" class="fc rpt-editor recs"></textarea></div>
+      <div class="rpt-data-note" id="rptDataNote">Pilih konfigurasi lalu klik Tinjau Ringkasan.</div>
+      <div class="rpt-status" id="rptStatus"><i class="fas fa-circle" style="color:#f59e0b"></i> Belum dihitung.</div>
+    </div>
+
+    <div class="op-report-panel" id="op-report-panel">
+      <div class="rpt-panel">
+        <div class="rpt-panel-title"><i class="fas fa-filter"></i> Filter Laporan Operasional</div>
+        <div class="rpt-form-grid">
+          <div><label class="rpt-label">Cakupan waktu</label><select class="rpt-input" id="op-scope" data-op-filter="change"><option value="period">Periode terpilih</option><option value="all">Sepanjang waktu</option></select></div>
+          <div><label class="rpt-label">Jenis unit</label><select class="rpt-input" id="op-type" data-op-filter="change"><option value="all">Semua unit</option><option value="SPPG">SPPG</option><option value="KDMP">KDMP</option></select></div>
+          <div><label class="rpt-label">Cakupan formulir</label><select class="rpt-input" id="op-form-scope" data-op-filter="change"><option value="main">Monitoring utama</option><option value="any">Semua respons terkait</option></select></div>
+          <div><label class="rpt-label">Kabupaten/Kota</label><select class="rpt-input" id="op-region" data-op-filter="change"><option value="all">Semua wilayah</option></select></div>
+          <div class="op-period-field"><label class="rpt-label">Tanggal awal</label><input class="rpt-input" id="op-start" type="date" data-op-filter="change"></div>
+          <div class="op-period-field"><label class="rpt-label">Tanggal akhir</label><input class="rpt-input" id="op-end" type="date" data-op-filter="change"></div>
+          <div id="op-status-wrap"><label class="rpt-label">Status detail</label><select class="rpt-input" id="op-status" data-op-filter="change"></select></div>
+          <div><label class="rpt-label">Cari unit / alamat / PIC</label><input class="rpt-input" id="op-search" type="search" placeholder="Ketik kata kunci…" data-op-filter="search"></div>
+          <div class="rpt-span-2"><label class="rpt-label">Catatan / tindak lanjut umum (opsional)</label><textarea class="rpt-input rpt-textarea" id="op-note" placeholder="Ditampilkan pada PDF operasional dan lembar ringkasan Excel."></textarea></div>
+        </div>
+        <div class="op-scope-note" id="op-scope-note"></div>
+      </div>
+
+      <div class="rpt-kpis" id="op-kpis"></div>
+
+      <div class="rpt-panel">
+        <div class="rpt-panel-title"><i class="fas fa-list-alt"></i> <span id="op-table-title">Daftar Operasional</span><span class="rpt-chip" id="op-row-count">0 baris</span></div>
+        <div class="op-table-wrap" id="op-table-wrap"></div>
+      </div>
+
+      <div class="rpt-actions">
+        <button class="btn bs" data-op-action="refresh"><i class="fas fa-sync-alt"></i> Perbarui</button>
+        <button class="btn bs" data-op-action="excel"><i class="fas fa-file-excel"></i> Unduh Excel</button>
+        <button class="btn bp" data-op-action="pdf"><i class="fas fa-file-pdf"></i> Unduh PDF</button>
+      </div>
+      <div class="rpt-status" id="op-status-text"><i class="fas fa-info-circle"></i> Pilih modul laporan operasional untuk menyusun daftar.</div>
+    </div>
+
+    <div class="rpt-actions rpt-managerial-only">
+      <button class="btn bs" onclick="previewManagementReport(true)"><i class="fas fa-sync-alt"></i> Tinjau / Hitung Ulang</button>
+      <button class="btn bp" id="rptGenerateBtn" onclick="generateManagementPpt()"><i class="fas fa-file-powerpoint"></i> Unduh PowerPoint</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: MASTER UNIT ================= -->
+<div id="mUnit" class="moverlay hidden">
+  <div class="mbox wide">
+    <div class="mhead"><h3 id="mUnitTitle"><i class="fas fa-plus-circle"></i> Tambah Unit</h3><button class="mclose" onclick="closeUnitModal()">×</button></div>
+    <div class="mbody">
+      <input type="hidden" id="eUId"/>
+      <div class="fg">
+        <label class="fl">Jenis Unit <span class="rq">*</span></label>
+        <div class="jpick">
+          <div class="jopt" id="pickSPPG" onclick="setJenis('SPPG')"><div class="jt">🍳 SPPG</div><small>Dapur / Satuan Pelayanan Pemenuhan Gizi</small></div>
+          <div class="jopt" id="pickKDMP" onclick="setJenis('KDMP')"><div class="jt">🏪 KDMP</div><small>Koperasi Desa Merah Putih</small></div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Nama Unit <span class="rq">*</span></label><input type="text" id="eUNama" class="fc" placeholder="Contoh: SPPG Kajen 01 / Koperasi Desa Merah Putih Tirto"/></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">No. Registrasi / Referensi</label><input type="text" id="eURef" class="fc" placeholder="NIK SPPG / NIK Koperasi"/></div>
+        <div class="fg"><label class="fl">Status Unit <span class="rq">*</span></label>
+          <select id="eUStatus" class="fc">
+            <option value="aktif">✅ Operasional / Aktif</option>
+            <option value="persiapan">🟡 Tahap Persiapan / Renovasi</option>
+            <option value="rencana">⚪ Direncanakan</option>
+            <option value="kendala">🔴 Ada Kendala</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Kabupaten/Kota <span class="rq">*</span></label><select id="eUKab" class="fc" onchange="fillKec('eUKab','eUKec')"></select></div>
+        <div class="fg"><label class="fl">Kecamatan <span class="rq">*</span></label><select id="eUKec" class="fc"></select></div>
+      </div>
+      <div class="fg"><label class="fl">Desa/Kelurahan <span class="rq">*</span></label><input type="text" id="eUDesa" class="fc" placeholder="Contoh: Tirto, Kajen, Bandar..."/></div>
+      <div class="fg"><label class="fl">Alamat Lengkap <span class="rq">*</span></label><input type="text" id="eUAlamat" class="fc" placeholder="Jl. ... No. ..., RT/RW, patokan lokasi"/></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Latitude <span class="rq">*</span></label><input type="number" id="eULat" class="fc" placeholder="-6.895" step="any"/></div>
+        <div class="fg"><label class="fl">Longitude <span class="rq">*</span></label><input type="number" id="eULng" class="fc" placeholder="109.65" step="any"/></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn bx bsm" onclick="getGPSUnit()"><i class="fas fa-crosshairs"></i> GPS Saya</button>
+        <button class="btn bs bsm" style="background:linear-gradient(135deg,#B45309,#F59E0B);box-shadow:0 3px 11px rgba(217,119,6,.35)" onclick="startPickMode()"><i class="fas fa-map-marked-alt"></i> Pilih di Peta</button>
+        <div class="fhint" style="flex:1;min-width:140px">Pin 📍 di peta otomatis muncul & bisa <b>digeret (drag)</b> — koordinat ikut berubah. Klik <b>Pilih di Peta</b> untuk menyorot langsung di peta.</div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Penanggung Jawab</label><input type="text" id="eUPic" class="fc" placeholder="Kepala SPPG / Ketua Koperasi"/></div>
+        <div class="fg"><label class="fl">Kontak (HP/WA)</label><input type="text" id="eUTelp" class="fc" placeholder="08xx-xxxx-xxxx"/></div>
+      </div>
+
+      <!-- KHUSUS SPPG -->
+      <div id="boxSPPG" style="display:none">
+        <div class="sec-title" style="margin-top:2px"><i class="fas fa-utensils"></i> Data Khusus SPPG</div>
+        <div class="fg"><label class="fl">Yayasan / Badan Pengelola</label><input type="text" id="eUYayasan" class="fc" placeholder="Contoh: Yayasan Berkah Gizi Nusantara"/></div>
+        <div class="frow">
+          <div class="fg"><label class="fl">Kapasitas (porsi/hari)</label><input type="number" id="eUKapasitas" class="fc" placeholder="3000"/></div>
+          <div class="fg"><label class="fl">Jumlah Sekolah Sasaran</label><input type="number" id="eUSekolah" class="fc" placeholder="10"/></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label class="fl">Sertifikat SLHS</label>
+            <select id="eUSlhs" class="fc"><option value="ya">✅ Sudah Terbit</option><option value="proses">🟡 Dalam Proses</option><option value="belum">❌ Belum</option></select>
+          </div>
+          <div class="fg"><label class="fl">Mulai Operasi (non wajib)</label><input type="date" id="eUMulai" class="fc"/></div>
+        </div>
+      </div>
+
+      <!-- KHUSUS KDMP -->
+      <div id="boxKDMP" style="display:none">
+        <div class="sec-title" style="margin-top:2px"><i class="fas fa-store"></i> Data Khusus KDMP</div>
+        <div class="frow">
+          <div class="fg"><label class="fl">Jumlah Anggota</label><input type="number" id="eUAnggota" class="fc" placeholder="200"/></div>
+          <div class="fg"><label class="fl">Peran dalam MBG</label>
+            <select id="eUPeran" class="fc">
+              <option value="Penyuplai Bahan Baku">🚚 Penyuplai Bahan Baku SPPG</option>
+              <option value="Titik Distribusi MBG">📦 Titik Distribusi MBG</option>
+              <option value="Wadah Warung Pangan">🏪 Wadah Warung Pangan</option>
+              <option value="Penyedia Logistik">🧊 Penyedia Gudang/Logistik</option>
+              <option value="Belum Ditentukan">⚪ Belum Ditentukan</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Unit Usaha</label><input type="text" id="eUUsaha" class="fc" placeholder="Contoh: Warung sembako, gudang pangan, agen sayur & ayam..."/></div>
+      </div>
+
+      <div class="fg" style="margin-top:4px"><label class="fl">Catatan Lain</label><textarea id="eUNote" class="fc" placeholder="Kendala, riwayat, rencana pengembangan..."></textarea></div>
+    </div>
+    <div class="mfoot"><button class="btn bx" onclick="closeUnitModal()">Batal</button><button class="btn bp" onclick="saveUnit()"><i class="fas fa-save"></i> Simpan Unit</button></div>
+  </div>
+  <!-- bilah mini saat mode pilih koordinat di peta -->
+  <div class="pickbar">
+    <span style="font-size:20px">📍</span>
+    <div>
+      <div class="pk-txt">Klik peta untuk memilih lokasi unit<small>…atau geret (drag) pin 📍 yang sudah ada</small></div>
+      <div class="pk-coords" id="pkCoords">Lat: —, Lng: —</div>
+    </div>
+    <button class="pk-done" onclick="endPickMode()"><i class="fas fa-check"></i> Selesai</button>
+  </div>
+</div>
+
+<!-- ================= MODAL: DETAIL UNIT ================= -->
+<div id="mDetail" class="moverlay hidden">
+  <div class="mbox wide">
+    <div class="mhead"><h3><i class="fas fa-info-circle"></i> Detail Unit</h3><button class="mclose" onclick="closeM('mDetail')">×</button></div>
+    <div id="dtBody"></div>
+    <div class="mfoot">
+      <button class="btn bx" onclick="closeM('mDetail')">Tutup</button>
+      <button class="btn bs" onclick="navigateUnit()"><i class="fas fa-location-arrow"></i> Navigasi</button>
+      <button class="btn bg" onclick="exportXlsxUnit(dtCurrent)"><i class="fas fa-file-excel"></i> Excel</button>
+      <button class="btn bd" onclick="exportPdfUnitDetail(dtCurrent)"><i class="fas fa-file-pdf"></i> PDF</button>
+      <button class="btn bd" id="dtDelBtn" onclick="confirmDelUnit(dtCurrent)"><i class="fas fa-trash"></i> Hapus</button>
+      <button class="btn bs" id="dtEditBtn" onclick="editFromDetail()"><i class="fas fa-edit"></i> Edit</button>
+      <button class="btn bp" onclick="monitorFromDetail()"><i class="fas fa-clipboard-check"></i> Monitoring</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: EDIT MONITORING ================= -->
+<div id="mEditMon" class="moverlay hidden">
+  <div class="mbox">
+    <div class="mhead"><h3><i class="fas fa-edit"></i> Edit Hasil Monitoring</h3><button class="mclose" onclick="closeM('mEditMon')">×</button></div>
+    <div class="mbody">
+      <input type="hidden" id="mId"/>
+      <div class="fg"><label class="fl">Unit</label><div id="mUnitName" style="font-size:12.5px;font-weight:800;color:var(--text);padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">—</div></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Tanggal</label><input type="date" id="mTgl" class="fc"/></div>
+        <div class="fg"><label class="fl">Petugas</label><input type="text" id="mPetugas" class="fc"/></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Kebersihan</label><select id="mKebersihan" class="fc"><option value="baik">✅ Baik</option><option value="perlu">⚠️ Perlu Perbaikan</option><option value="tidak">❌ Tidak Sesuai</option></select></div>
+        <div class="fg"><label class="fl">Kualitas Menu</label><select id="mGizi" class="fc"><option value="baik">✅ Baik</option><option value="perlu">⚠️ Perlu Perbaikan</option><option value="tidak">❌ Tidak Sesuai</option></select></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Distribusi</label><select id="mDistribusi" class="fc"><option value="baik">✅ Baik</option><option value="perlu">⚠️ Perlu Perbaikan</option><option value="tidak">❌ Tidak Sesuai</option></select></div>
+        <div class="fg"><label class="fl">Dokumentasi</label><select id="mDok" class="fc"><option value="baik">✅ Baik</option><option value="perlu">⚠️ Perlu Perbaikan</option><option value="tidak">❌ Tidak Sesuai</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Temuan Lapangan</label><textarea id="mTemuan" class="fc"></textarea></div>
+      <div class="fg"><label class="fl">Rekomendasi</label><textarea id="mRekom" class="fc"></textarea></div>
+    </div>
+    <div class="mfoot"><button class="btn bx" onclick="closeM('mEditMon')">Batal</button><button class="btn bp" onclick="updateMon()"><i class="fas fa-save"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- ================= MODAL: CONFIRM ================= -->
+<div id="mConfirm" class="moverlay hidden">
+  <div class="mbox" style="max-width:340px">
+    <div class="mhead"><h3><i class="fas fa-exclamation-triangle" style="color:var(--bad)"></i> Konfirmasi</h3><button class="mclose" onclick="closeM('mConfirm')">×</button></div>
+    <div class="mbody" style="text-align:center;padding:20px">
+      <div style="font-size:38px;margin-bottom:9px">🗑️</div>
+      <div id="confirmMsg" style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.5"></div>
+      <div style="font-size:10px;color:var(--text3)">Tindakan ini tidak dapat dibatalkan.</div>
+    </div>
+    <div class="mfoot"><button class="btn bx" onclick="closeM('mConfirm')">Batal</button><button class="btn bd" id="confirmBtn"><i class="fas fa-trash"></i> Hapus</button></div>
+  </div>
+</div>
+
+<div class="toastwrap" id="toastwrap"></div>
+
+<!-- ================= MODAL: MANAJEMEN PENGGUNA (ADMIN) ================= -->
+<div id="mUsers" class="moverlay hidden">
+  <div class="mbox wide">
+    <div class="mhead"><h3><i class="fas fa-users"></i> Manajemen Pengguna</h3><button class="mclose" onclick="closeM('mUsers')">×</button></div>
+    <div class="mbody">
+      <input type="hidden" id="uId"/>
+      <div class="fg"><label class="fl">Nama Lengkap <span class="rq">*</span></label><input type="text" id="uNama" class="fc" placeholder="Nama petugas / admin"/></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Username <span class="rq">*</span></label><input type="text" id="uUser" class="fc" placeholder="login"/></div>
+        <div class="fg"><label class="fl">Password <span class="rq">*</span></label><input type="text" id="uPass" class="fc" placeholder="password"/></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Role <span class="rq">*</span></label>
+          <select id="uRole" class="fc"><option value="petugas">🔍 Petugas Monitoring</option><option value="admin">⚙️ Admin / Koordinator</option></select>
+        </div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn bp" onclick="saveUserForm()" style="width:100%"><i class="fas fa-save"></i> <span id="uBtnTxt">Tambah Pengguna</span></button></div>
+      </div>
+      <div class="sec-title" style="margin-top:8px"><i class="fas fa-list"></i> Daftar Pengguna (<span id="uCount">0</span>)</div>
+      <div id="userList"></div>
+    </div>
+    <div class="mfoot"><button class="btn bx" onclick="closeM('mUsers')">Tutup</button></div>
+  </div>
+</div>
+
+<!-- ================= MODAL: IMPOR T-OPTIMAL ================= -->
+<div id="mTOptimalImport" class="moverlay hidden">
+  <div class="mbox wide" style="max-width:1120px">
+    <div class="mhead">
+      <h3><i class="fas fa-file-import"></i> Impor Data T-OPTIMAL</h3>
+      <button class="mclose" onclick="closeImportModal()">×</button>
+    </div>
+    <div class="mbody">
+      <div class="import-explain">
+        <b>Alur impor terkontrol:</b> file JSON T-OPTIMAL dibaca terlebih dahulu sebagai pratinjau. Pilih respons yang diperlukan, lalu simpan ke DARMA-1. Nilai keuangan dinormalisasi dari Rupiah penuh ke skala instrumen DARMA-1: Rp Juta, Rp Ribu/kg, atau Rupiah penuh.
+      </div>
+      <div class="import-count" id="toptImportMeta">Belum ada data.</div>
+      <div class="import-toolbar">
+        <select id="toptFilterForm" class="fc" onchange="filterTOptimalPreview()">
+          <option value="">Semua Formulir</option><option value="SPPG">SPPG / MBG</option><option value="NAKER">Tenaga Kerja</option>
+        </select>
+        <select id="toptFilterStatus" class="fc" onchange="filterTOptimalPreview()">
+          <option value="">Semua Status</option><option value="baru">Data Baru</option><option value="sudah-ada">Sudah Ada</option><option value="duplikat-hari">Duplikat SPPG/Hari</option><option value="duplikat-file">Duplikat Dalam File</option><option value="unit-baru">Unit Belum Ada</option><option value="tanpa-unit">Nama Unit Kosong</option>
+        </select>
+        <select id="toptFilterKab" class="fc" onchange="filterTOptimalPreview()"><option value="">Semua Kabupaten/Kota</option></select>
+        <input id="toptFilterStart" type="date" class="fc" onchange="filterTOptimalPreview()" title="Tanggal awal"/>
+        <input id="toptFilterEnd" type="date" class="fc" onchange="filterTOptimalPreview()" title="Tanggal akhir"/>
+        <input id="toptFilterSearch" class="fc import-search" placeholder="Cari nama SPPG, wilayah, atau ID respons..." oninput="filterTOptimalPreview()"/>
+        <div class="import-actions">
+          <button class="btn bx bsm" onclick="resetTOptimalFilters()">✕ Reset Filter</button>
+          <button class="btn bs bsm" onclick="selectAllTOptimal(true)">✓ Pilih Data Tampil</button>
+          <button class="btn bx bsm" onclick="selectAllTOptimal(false)">✕ Kosongkan Pilihan</button>
+          <label style="display:flex;gap:7px;align-items:center;font-size:10.5px;font-weight:700;color:var(--text2);margin-left:auto"><input id="toptAutoCreateUnits" type="checkbox"/> Buat master unit baru jika belum cocok (Admin)</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:10.5px;font-weight:800;color:#1d4ed8"><input id="toptUpdateCoordinates" type="checkbox"/> Perbarui koordinat Master Unit dari data terpilih</label>
+          <label style="display:flex;gap:7px;align-items:center;font-size:10.5px;font-weight:800;color:#b45309"><input id="toptReplaceSameDay" type="checkbox"/> Perbarui rekaman SPPG jika tanggal sama</label>
+        </div>
+      </div>
+      <div class="import-table-wrap">
+        <table class="import-table">
+          <thead><tr><th style="width:34px">Pilih</th><th>Form</th><th>SPPG / Unit</th><th>Tanggal</th><th>ID Respons</th><th>Koordinat</th><th>Status</th></tr></thead>
+          <tbody id="toptImportRows"><tr><td colspan="7" class="text-center text-muted py-3">Belum ada file dipilih.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="import-currency-note"><b>Catatan:</b> q401/q403/q411/q413 dibagi 1.000.000; q412 dibagi 1.000; q203/q207 Tenaga Kerja tidak dibagi. q410 memakai deteksi campuran: angka kecil seperti 1/15 diperlakukan sebagai 1/15 juta, sedangkan nominal besar dibagi 1.000.000. Jika opsi koordinat dicentang, koordinat terbaru dari respons terpilih akan memperbarui Master Unit. Untuk SPPG, satu unit pada tanggal yang sama diperlakukan sebagai satu rekaman; data duplikat otomatis tidak dipilih. Jika perlu mengganti rekaman lama, centang opsi perbarui rekaman tanggal sama. Data asli tetap disimpan di bagian audit form.</div>
+    </div>
+    <div class="mfoot">
+      <button class="btn bx" onclick="closeImportModal()">Batal</button>
+      <button class="btn bp" id="toptImportCommit" onclick="commitTOptimalImport()" disabled><i class="fas fa-check"></i> Tambahkan Data Terpilih</button>
+    </div>
+  </div>
+</div>
+
+<div id="printRoot"></div>
+
+<script type="module" src="./js/app.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+</body>
+</html>

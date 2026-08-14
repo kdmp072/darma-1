@@ -1,0 +1,21 @@
+/* DARMA-1 application composition root. Feature modules are evaluated in dependency order. */
+import './core/constants.js';
+import './domain/forms/registry.js';
+import './features/monitoring/form-engine.js';
+import './data/runtime.js';
+import './features/imports/t-optimal.js';
+import './features/map/index.js';
+import './features/filters/index.js';
+import './core/navigation.js';
+import './features/auth/index.js';
+import './features/users/index.js';
+import './features/dashboard/index.js';
+import './features/units/index.js';
+import './features/units/detail.js';
+import './features/monitoring/media.js';
+import './features/monitoring/index.js';
+import './features/history/index.js';
+import './core/confirm.js';
+import './features/exports/data.js';
+import './features/exports/forms.js';
+import './app/init.js';

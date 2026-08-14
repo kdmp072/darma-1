@@ -1,0 +1,21 @@
+{
+  "name": "darma-1",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "validate": "npm run check && npm test",
+    "db:create": "wrangler d1 create darma",
+    "db:schema:local": "wrangler d1 execute darma --local --file=schema.sql",
+    "db:schema:remote": "wrangler d1 execute darma --remote --file=schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "4.121.0"
+  }
+}
