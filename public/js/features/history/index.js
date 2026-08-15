@@ -1,4 +1,5 @@
 import { getAppContext } from '../../core/context.js';
+import { getSppgAnalytics, formatSppgAnalytics } from '../../domain/monitoring/operational-analytics.js';
 
 const monitoringRepository = getAppContext().repositories.monitoring;
 
@@ -40,6 +41,8 @@ function renderHist(){
     const linkVal = (m.form && m.form.fields && m.form.fields.sp_link_lampiran);
     const linkHtml = linkVal ? `<div style="margin-top:6px;font-size:11px"><a href="${esc(linkVal)}" target="_blank" rel="noopener noreferrer" style="color:var(--brand);font-weight:700;display:inline-flex;align-items:center;gap:5px"><i class="fas fa-external-link-alt"></i> <b>Link Lampiran Berkas</b></a></div>` : '';
     const pTxt = [m.petugas, (m.form && m.form.fields && m.form.fields.sp109) ? '🎙️ '+m.form.fields.sp109 : ''].filter(Boolean).join(' · ');
+    const analytics = m.formType === 'SPPG' ? formatSppgAnalytics(getSppgAnalytics(m, u)) : null;
+    const analyticsHtml = analytics ? `<div class="hc-analytics"><b>Realisasi:</b> ${esc(String(analytics.actualPorsi ?? '—'))} porsi · ${esc(String(analytics.actualSekolah ?? '—'))} sekolah &nbsp; <b>Capaian:</b> ${esc(analytics.utilization)} kapasitas · ${esc(analytics.schoolCoverage)} sekolah &nbsp; <b>Gap:</b> ${esc(String(analytics.gapPorsi))} porsi · ${esc(String(analytics.gapSekolah))} sekolah</div>` : '';
     return `<div class="hcard" onclick="openDetail('${u.id}')">
       <div class="hc-top">
         <div class="kbadge ${u.jenis.toLowerCase()} baik">${u.jenis==='SPPG'?'S':'K'}</div>
@@ -48,6 +51,7 @@ function renderHist(){
       </div>
       <div class="hc-date">📅 ${fmtD(m.tgl)} · 👤 ${esc(pTxt || m.petugas || 'Petugas')}</div>
       <div class="hc-aspects">${monDetailAspects(m)}</div>
+      ${analyticsHtml}
       ${m.temuan?`<div class="hc-temuan">🔎 ${esc(m.temuan)}</div>`:''}
       ${linkHtml}
       ${fotoHtml}
