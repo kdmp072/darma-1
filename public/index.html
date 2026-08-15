@@ -630,7 +630,8 @@
     <div class="mbody">
       <div class="import-explain"><b>Pilih tujuan data sebelum memilih file.</b> File JSON yang sama dapat diproses dengan mode yang berbeda. Mode <b>Sinkronisasi Koordinat</b> tidak pernah membuat Master Unit baru.</div>
       <div class="process-choice-grid process-choice-grid-4">
-        <button class="process-choice" onclick="chooseTOptimalImportMode('coordinates')"><i class="fas fa-map-marker-alt"></i><b>Sinkronisasi Koordinat</b><small>Update latitude/longitude Master Unit yang cocok saja.</small></button>
+        <button class="process-choice" onclick="chooseTOptimalImportMode('mapping')"><i class="fas fa-link"></i><b>Pemetaan Master Unit</b><small>Pasangkan nama T-Optimal ke Master Unit DARMA-1 tanpa mengubah database.</small></button>
+        <button class="process-choice" onclick="chooseTOptimalImportMode('coordinates')"><i class="fas fa-map-marker-alt"></i><b>Sinkronisasi Koordinat</b><small>Update latitude/longitude Master Unit yang sudah dipetakan.</small></button>
         <button class="process-choice" onclick="chooseTOptimalImportMode('sppg')"><i class="fas fa-utensils"></i><b>Monitoring SPPG/MBG</b><small>Map q101–q414 ke monitoring SPPG.</small></button>
         <button class="process-choice" onclick="chooseTOptimalImportMode('naker')"><i class="fas fa-users"></i><b>Monitoring Tenaga Kerja</b><small>Map respons Naker sebagai pelengkap SPPG.</small></button>
         <button class="process-choice" onclick="chooseTOptimalImportMode('kdmp')"><i class="fas fa-store"></i><b>Monitoring KDMP</b><small>Map respons KDMP ke Master Unit KDMP.</small></button>
@@ -672,6 +673,7 @@
       <div class="import-mode-panel">
         <label class="fl" for="toptProcessMode">Mode Proses T-OPTIMAL</label>
         <select id="toptProcessMode" class="fc" onchange="changeTOptimalMode()">
+          <option value="mapping">Pemetaan Master Unit</option>
           <option value="coordinates">Sinkronisasi Koordinat Master Unit</option>
           <option value="sppg">Monitoring SPPG/MBG</option>
           <option value="naker">Monitoring Tenaga Kerja</option>
@@ -702,7 +704,7 @@
       </div>
       <div class="import-table-wrap">
         <table class="import-table">
-          <thead><tr><th style="width:34px">Pilih</th><th>Form</th><th>SPPG / Unit</th><th>Tanggal</th><th>ID Respons</th><th>Koordinat</th><th>Status</th></tr></thead>
+          <thead id="toptImportHead"><tr><th style="width:34px">Pilih</th><th>Form</th><th>SPPG / Unit</th><th>Tanggal</th><th>ID Respons</th><th>Koordinat</th><th>Status</th></tr></thead>
           <tbody id="toptImportRows"><tr><td colspan="7" class="text-center text-muted py-3">Belum ada file dipilih.</td></tr></tbody>
         </table>
       </div>
@@ -719,5 +721,5 @@
 
 <script type="module" src="./js/app.js"></script>
 <script type="module" src="./js/bootstrap.js"></script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a2b510e6bf64fd3e',t:'MTc4Njc2NDA1Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
