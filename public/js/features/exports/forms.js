@@ -1,5 +1,6 @@
 import { themeForFormType } from './pdf-theme.js';
 import { currencyScaleForField, displayUnitForField, formatStoredCurrency, storedCurrencyToAbsolute } from '../../domain/forms/currency.js';
+import { getSppgAnalytics, formatSppgAnalytics } from '../../domain/monitoring/operational-analytics.js';
 
 /* ============================================================
    CETAK FORM — output persis seperti layout Excel/Juknis
@@ -236,6 +237,17 @@ function generateFormPdf(jenis,filled,rec){
       }
       sec.fields.filter(fld=>fld.type==='g').forEach(fld=>{y=gridPdf(doc,fld,fields[fld.id],filled,y,PH);});
     });
+    if(filled&&rec&&formType==='SPPG'){
+      const analytics=formatSppgAnalytics(getSppgAnalytics(rec,u));
+      if(analytics){
+        y=formTitle(doc,'Rekap Kinerja Operasional SPPG',y,PH);
+        doc.autoTable({startY:y,head:[['Indikator','Target Master','Realisasi Monitoring','Capaian','Gap']],body:[
+          ['Porsi/hari',analytics.targetPorsi??'—',analytics.actualPorsi??'—',analytics.utilization,analytics.gapPorsi],
+          ['Sekolah',analytics.targetSekolah??'—',analytics.actualSekolah??'—',analytics.schoolCoverage,analytics.gapSekolah]
+        ],styles:{fontSize:8,cellPadding:1.7},headStyles:pdfTableHead(doc),columnStyles:{0:{fontStyle:'bold',fillColor:[239,246,255]}}});
+        y=doc.lastAutoTable.finalY+5;
+      }
+    }
     if(filled&&rec&&(rec.temuan||rec.rekom)){y=formTitle(doc,'Analisis Surveyor',y,PH);doc.autoTable({startY:y,body:[['Catatan / Analisis Surveyor',pdfSafe(rec.temuan||'-')],['Rekomendasi / Tindak Lanjut',pdfSafe(rec.rekom||'-')]],theme:'grid',styles:{fontSize:8,cellPadding:1.8},columnStyles:{0:{cellWidth:52,fontStyle:'bold',fillColor:[240,249,250]}}});y=doc.lastAutoTable.finalY+5;}
     if(filled&&rec&&rec.hasil){y=formTitle(doc,'Status Monitoring',y,PH);doc.autoTable({startY:y,body:[[{content:'Status: '+(HASIL_META[rec.hasil]?HASIL_META[rec.hasil].label:rec.hasil),styles:{fontStyle:'bold',fontSize:10,halign:'center',textColor:[29,78,216]}}]],theme:'grid'});y=doc.lastAutoTable.finalY+6;}
     const fotoData = fields.sp_foto_kegiatan || fields.sp205_foto;
