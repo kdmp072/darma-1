@@ -1,6 +1,7 @@
 /* DARMA-1 application composition root. Feature modules are evaluated in dependency order. */
 import './core/constants.js';
 import './domain/forms/registry.js';
+import './domain/monitoring/operational-analytics.js';
 import './features/monitoring/form-engine.js';
 import './data/runtime.js';
 import './features/imports/t-optimal.js';
