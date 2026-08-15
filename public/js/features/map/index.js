@@ -109,8 +109,7 @@ function renderMap(){
   const s=list.filter(u=>u.jenis==='SPPG').length, k=list.filter(u=>u.jenis==='KDMP').length;
   const monitoredUnits=list.filter(u=>primaryMonitoringForUnit(u.id).length>0).length;
   const unmonitoredUnits=Math.max(0,list.length-monitoredUnits);
-  const nakerForms=list.reduce((total,u)=>total+nakerFormsForUnit(u.id).length,0);
-  document.getElementById('cntTxt').innerHTML=`<span class="map-count-main"><b>${list.length}</b> unit</span><span class="map-count-type sppg"><i class="fas fa-utensils"></i> SPPG ${s}</span><span class="map-count-type kdmp"><i class="fas fa-store"></i> KDMP ${k}</span><span class="map-count-type monitored"><i class="fas fa-check-circle"></i> Termonitor ${monitoredUnits}</span><span class="map-count-type pending"><i class="fas fa-clock"></i> Belum ${unmonitoredUnits}</span><span class="map-count-type naker"><i class="fas fa-user-check"></i> Naker ${nakerForms} form</span>`;
+  document.getElementById('cntTxt').innerHTML=`<span class="map-count-main"><b>${list.length}</b> unit</span><span class="map-count-type sppg"><i class="fas fa-utensils"></i> SPPG ${s}</span><span class="map-count-type kdmp"><i class="fas fa-store"></i> KDMP ${k}</span><span class="map-count-type monitored"><i class="fas fa-check-circle"></i> Termonitor ${monitoredUnits}</span><span class="map-count-type pending"><i class="fas fa-clock"></i> Belum ${unmonitoredUnits}</span>`;
 }
 function buildPopup(u){
   const primary=[...primaryMonitoringForUnit(u.id)].sort((a,b)=>String(b.tgl||'').localeCompare(String(a.tgl||'')));
