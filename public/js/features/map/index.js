@@ -53,13 +53,21 @@ function fitAll(){
   const b=L.latLngBounds(pts.map(u=>[u.lat,u.lng]));
   map.flyToBounds(b,{padding:[60,60],duration:1});
 }
+function mapMonitoringKind(record){
+  if(record&&record.formType)return record.formType;
+  if(record&&record.jenis)return record.jenis;
+  const unit=record?unitById(record.unitId):null;
+  return unit?unit.jenis:'';
+}
+function primaryMonitoringForUnit(unitId){return DB.monitoring.filter(record=>record.unitId===unitId&&(mapMonitoringKind(record)==='SPPG'||mapMonitoringKind(record)==='KDMP'));}
+function nakerFormsForUnit(unitId){return DB.monitoring.filter(record=>record.unitId===unitId&&mapMonitoringKind(record)==='NAKER');}
 function filteredUnits(){
   const q=(FS.search||'').toLowerCase();
   return DB.units.filter(u=>{
     if(FS.jenis&&u.jenis!==FS.jenis)return false;
     if(FS.kab&&u.kab!==FS.kab)return false;
     if(FS.hasil&&unitHasil(u)!==FS.hasil)return false;
-    const count = monsOf(u.id).length;
+    const count = primaryMonitoringForUnit(u.id).length;
     if(FS.statusMon==='mon' && count===0) return false;
     if(FS.statusMon==='unmon_sppg' && (u.jenis!=='SPPG' || count>0)) return false;
     if(FS.statusMon==='unmon_kdmp' && (u.jenis!=='KDMP' || count>0)) return false;
@@ -77,7 +85,8 @@ function renderMap(){
   const list=filteredUnits();
   list.forEach(u=>{
     const h=unitHasil(u);
-    const count = monsOf(u.id).length;
+    const count = primaryMonitoringForUnit(u.id).length;
+    const nakerCount = nakerFormsForUnit(u.id).length;
     const isMon = count > 0;
     let bgClass = u.jenis.toLowerCase();
     let ringClass = '';
@@ -88,7 +97,7 @@ function renderMap(){
       }
     }
     const icon=L.divIcon({
-      html:`<div class="mk ${bgClass} ${ringClass}" title="${esc(u.nama)} (${isMon ? count + 'x kunjungan monitoring' : 'Belum Dimonitor'})"><i class="fas ${u.jenis==='SPPG'?'fa-utensils':'fa-store'}"></i></div>`,
+      html:`<div class="mk ${bgClass} ${ringClass}" title="${esc(u.nama)} (${isMon ? count + 'x monitoring utama' : 'Belum Dimonitor'}${nakerCount ? ' · '+nakerCount+' form Naker' : ''})"><i class="fas ${u.jenis==='SPPG'?'fa-utensils':'fa-store'}"></i></div>`,
       className:'',iconSize:[32,38],iconAnchor:[16,38],popupAnchor:[0,-36]
     });
     const mk=L.marker([u.lat,u.lng],{icon}).addTo(map);
@@ -98,10 +107,15 @@ function renderMap(){
     markers.push(mk);
   });
   const s=list.filter(u=>u.jenis==='SPPG').length, k=list.filter(u=>u.jenis==='KDMP').length;
-  document.getElementById('cntTxt').innerHTML=`<b>${list.length}</b> unit &nbsp;·&nbsp; <span style="color:var(--sppg)"><i class="fas fa-utensils"></i> ${s}</span> &nbsp;·&nbsp; <span style="color:var(--kdmp)"><i class="fas fa-store"></i> ${k}</span>`;
+  const monitoredUnits=list.filter(u=>primaryMonitoringForUnit(u.id).length>0).length;
+  const unmonitoredUnits=Math.max(0,list.length-monitoredUnits);
+  const nakerForms=list.reduce((total,u)=>total+nakerFormsForUnit(u.id).length,0);
+  document.getElementById('cntTxt').innerHTML=`<span class="map-count-main"><b>${list.length}</b> unit</span><span class="map-count-type sppg"><i class="fas fa-utensils"></i> SPPG ${s}</span><span class="map-count-type kdmp"><i class="fas fa-store"></i> KDMP ${k}</span><span class="map-count-type monitored"><i class="fas fa-check-circle"></i> Termonitor ${monitoredUnits}</span><span class="map-count-type pending"><i class="fas fa-clock"></i> Belum ${unmonitoredUnits}</span><span class="map-count-type naker"><i class="fas fa-user-check"></i> Naker ${nakerForms} form</span>`;
 }
 function buildPopup(u){
-  const m=lastMon(u.id);
+  const primary=[...primaryMonitoringForUnit(u.id)].sort((a,b)=>String(b.tgl||'').localeCompare(String(a.tgl||'')));
+  const m=primary[0]||null;
+  const nakerCount=nakerFormsForUnit(u.id).length;
   const has=u.jenis==='SPPG';
   const kv = has
     ? `<div class="pk"><b>${fmtN(u.kapasitas)}</b><span>porsi / hari</span></div>
@@ -121,6 +135,7 @@ function buildPopup(u){
   }else{
     hasilHtml=`<div class="pop-has idle">⚪ <b>Belum Dimonitor</b> — lakukan kunjungan lapangan via tab Monitoring.</div>`;
   }
+  if(nakerCount) hasilHtml+=`<div class="pop-has naker-note">👤 Kelengkapan Naker: <b>${nakerCount} form</b> (pendukung SPPG)</div>`;
   return `<div class="pop">
     <div class="pop-hd ${u.jenis.toLowerCase()}">
       <div class="pop-badge">${has?'<i class="fas fa-utensils"></i> SPPG / DAPUR MBG':'<i class="fas fa-store"></i> KDMP KOPERASI'}</div>
