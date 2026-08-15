@@ -133,18 +133,33 @@ function rowUnit(row) {
   const manual = row?.manualUnitId ? unitsRepository.getById(row.manualUnitId) : null;
   return manual || findUnit(row.item.identity, unitTypeForItem(row.item));
 }
-function candidateOptions(row) {
-  const mapped = rowUnit(row);
+function candidatePool(row) {
   const jenis = unitTypeForItem(row.item);
-  const ranked = rankUnitCandidates(row.item.identity, jenis).filter(candidate => candidate.score >= 45).slice(0, 8);
-  const pool = unitsRepository.getAll().filter(unit => unit.jenis === jenis).sort((a, b) => a.nama.localeCompare(b.nama));
-  if (!mapped && !ranked.length && !pool.length) return '<small class="import-no-candidate">Belum ada Master Unit untuk dipasangkan.</small>';
+  const ranked = rankUnitCandidates(row.item.identity, jenis).filter(candidate => candidate.score >= 45);
+  const rankedIds = new Set(ranked.map(candidate => candidate.unit.id));
+  const pool = unitsRepository.getAll().filter(unit => unit.jenis === jenis && !rankedIds.has(unit.id)).sort((a, b) => a.nama.localeCompare(b.nama));
+  return { ranked: ranked.slice(0, 20), pool };
+}
+function candidateOptionHtml(row) {
+  const mapped = rowUnit(row), query = norm(row.candidateQuery || '');
+  const { ranked, pool } = candidatePool(row);
   const options = [];
   if (mapped) options.push(`<option value="${esc(mapped.id)}" selected>✓ ${esc(mapped.nama)} · Master saat ini</option>`);
-  ranked.filter(candidate => !mapped || candidate.unit.id !== mapped.id).forEach(candidate => options.push(`<option value="${esc(candidate.unit.id)}">${esc(candidate.unit.nama)} · kandidat ${Math.min(99, Math.round(candidate.score))}%${candidate.distance !== null ? ` · ${Math.round(candidate.distance)} m` : ''}</option>`));
-  const rankedIds = new Set(ranked.map(candidate => candidate.unit.id));
-  pool.filter(unit => (!mapped || unit.id !== mapped.id) && !rankedIds.has(unit.id)).forEach(unit => options.push(`<option value="${esc(unit.id)}">${esc(unit.nama)} · pilih manual</option>`));
-  return `<div class="import-map-control"><small>Pasangkan ke Master Unit:</small><select class="fc import-candidate-select" data-import-key="${esc(row.key)}" onchange="assignTOptimalUnit(this.dataset.importKey,this.value)"><option value="">Pilih Master Unit...</option>${options.join('')}</select></div>`;
+  const choices = [...ranked.map(candidate => ({ unit: candidate.unit, label: `${candidate.unit.nama} · kandidat ${Math.min(99, Math.round(candidate.score))}%${candidate.distance !== null ? ` · ${Math.round(candidate.distance)} m` : ''}` })), ...pool.map(unit => ({ unit, label: `${unit.nama} · pilih manual` }))];
+  choices.filter(choice => !mapped || choice.unit.id !== mapped.id).filter(choice => !query || norm([choice.unit.nama, choice.unit.kab, choice.unit.kec, choice.unit.desa].join(' ')).includes(query)).slice(0, 60).forEach(choice => options.push(`<option value="${esc(choice.unit.id)}">${esc(choice.label)}</option>`));
+  return `<option value="">Pilih Master Unit...</option>${options.join('')}`;
+}
+function candidateOptions(row) {
+  const mapped = rowUnit(row), { ranked, pool } = candidatePool(row);
+  if (!mapped && !ranked.length && !pool.length) return '<small class="import-no-candidate">Belum ada Master Unit untuk dipasangkan.</small>';
+  return `<div class="import-map-control"><small>Pasangkan ke Master Unit:</small><input class="fc import-candidate-search" data-import-key="${esc(row.key)}" placeholder="Cari nama/kecamatan..." value="${esc(row.candidateQuery || '')}" oninput="filterTOptimalCandidateOptions(this.dataset.importKey,this.value)"><select class="fc import-candidate-select" data-import-key="${esc(row.key)}" onchange="assignTOptimalUnit(this.dataset.importKey,this.value)">${candidateOptionHtml(row)}</select></div>`;
+}
+function filterTOptimalCandidateOptions(key, query) {
+  const row = importState.rows.find(item => item.key === key);
+  if (!row) return;
+  row.candidateQuery = query || '';
+  const select = document.querySelector(`select.import-candidate-select[data-import-key="${CSS.escape(key)}"]`);
+  if (select) select.innerHTML = candidateOptionHtml(row);
 }
 function assignTOptimalUnit(key, unitId) {
   const row = importState.rows.find(item => item.key === key);
@@ -507,6 +522,6 @@ function commitTOptimalImport() {
 
 Object.assign(globalThis, {
   importTOptimal, openImportModal, closeImportModal, filterTOptimalPreview,
-  resetTOptimalFilters, selectAllTOptimal, toggleTOptimalRow, assignTOptimalUnit, changeTOptimalMode, commitMappingProcess, commitCoordinateProcess, commitTOptimalImport,
+  resetTOptimalFilters, selectAllTOptimal, toggleTOptimalRow, assignTOptimalUnit, filterTOptimalCandidateOptions, changeTOptimalMode, commitMappingProcess, commitCoordinateProcess, commitTOptimalImport,
   openTOptimalImportMode, closeTOptimalImportMode, chooseTOptimalImportMode
 });
