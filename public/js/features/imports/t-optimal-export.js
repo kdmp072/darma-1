@@ -69,15 +69,19 @@ function exportRowsVisible() {
 }
 function renderTOptimalExport() {
   const visible=exportRowsVisible(), selected=exportState.rows.filter(row=>row.selected).length, meta=document.getElementById('toptExportMeta');
-  if(meta)meta.innerHTML=`<b>${exportState.rows.length}</b> monitoring tersedia · tampil <b>${visible.length}</b> · dipilih <b>${selected}</b>`;
+  if(meta)meta.innerHTML=`<b>${exportState.rows.length}</b> monitoring tersedia · tampil <b>${visible.length}</b> · dipilih <b>${selected}</b> (maksimal 1 form)`;
   const body=document.getElementById('toptExportRows');if(!body)return;
   body.innerHTML=visible.length?visible.map(row=>{const r=row.record,u=unitById(r.unitId)||{};return `<tr><td><input type="checkbox" ${row.selected?'checked':''} onchange="toggleTOptimalExportRow('${escExport(row.key)}',this.checked)"></td><td>${escExport(exportKind(r))}</td><td><b>${escExport(u.nama||'—')}</b></td><td>${escExport(r.tgl||'—')}</td><td>${escExport(r.id)}</td><td><span class="import-status siap-koordinat">Siap diekspor</span></td></tr>`;}).join(''):'<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada data.</td></tr>';
   const button=document.getElementById('toptExportButton');if(button)button.disabled=selected===0;
 }
-function toggleTOptimalExportRow(key,checked){const row=exportState.rows.find(item=>item.key===key);if(row)row.selected=checked;renderTOptimalExport();}
+function toggleTOptimalExportRow(key,checked){
+  if(checked) exportState.rows.forEach(item=>{item.selected=item.key===key;});
+  else {const row=exportState.rows.find(item=>item.key===key);if(row)row.selected=false;}
+  renderTOptimalExport();
+}
 function openTOptimalProcessMenu(){document.getElementById('mTOptimalProcess')?.classList.remove('hidden');}
 function closeTOptimalProcessMenu(){document.getElementById('mTOptimalProcess')?.classList.add('hidden');}
-function beginTOptimalImport(){closeTOptimalProcessMenu();document.getElementById('impTOptimal')?.click();}
+function beginTOptimalImport(){openTOptimalImportMode();}
 function openTOptimalExport(){
   closeTOptimalProcessMenu();
   exportState={rows:monitoringRepository.getAll().map(record=>({key:`export:${record.id}`,record,selected:false}))};
@@ -86,8 +90,9 @@ function openTOptimalExport(){
 function closeTOptimalExport(){document.getElementById('mTOptimalExport')?.classList.add('hidden');}
 function exportTOptimalSelected(){
   const selected=exportState.rows.filter(row=>row.selected);
-  if(!selected.length){toast('Pilih minimal satu monitoring untuk diekspor.','e');return;}
-  const payload={format:'darma1-t-optimal-outbound-v1',source:'DARMA-1',target:'T-OPTIMAL',exportedAt:new Date().toISOString(),records:selected.map(row=>outboundRecord(row.record))};
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`DARMA1_TOPTIMAL_OUT_${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast(`✅ ${selected.length} form disiapkan untuk Portal T-OPTIMAL.`);
+  if(selected.length !== 1){toast('Pilih tepat satu form monitoring untuk diekspor.','e');return;}
+  const one=selected[0].record;
+  const payload={format:'darma1-t-optimal-outbound-v1',source:'DARMA-1',target:'T-OPTIMAL',exportedAt:new Date().toISOString(),records:[outboundRecord(one)]};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`DARMA1_TOPTIMAL_${exportKind(one)}_${one.tgl||new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('✅ 1 form disiapkan untuk Portal T-OPTIMAL.');
 }
 Object.assign(globalThis,{openTOptimalProcessMenu,closeTOptimalProcessMenu,beginTOptimalImport,openTOptimalExport,closeTOptimalExport,renderTOptimalExport,toggleTOptimalExportRow,exportTOptimalSelected});
