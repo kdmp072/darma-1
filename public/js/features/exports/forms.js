@@ -133,17 +133,27 @@ function fieldVal(fld,v,filled){if(!filled)return '';const scale=currencyScaleFo
 function currencyValueForOutput(field,parentField,value){const scale=currencyScaleForField(field,parentField);return scale?formatStoredCurrency(value,scale):(value||'');}
 function unitForOutput(field,parentField=null){return displayUnitForField(field,parentField);}
 function hasFormData(form){const f=(form&&form.fields)||{};return Object.keys(f).some(k=>{const v=f[k];if(v==null||v==='')return false;if(Array.isArray(v))return v.length>0;if(typeof v==='object')return Object.values(v).some(x=>x&&(typeof x!=='object'||Object.values(x).some(z=>z)));return true;});}
+function computedGridValue(fld,data,row){
+  if(!row.computed)return data&&data[row.id];
+  if(fld.fields&&fld.fields.length){
+    const out={};
+    fld.fields.forEach(column=>{let total=0,has=false;fld.rows.filter(item=>!item.computed).forEach(item=>{const value=data&&data[item.id]?data[item.id][column.id]:'';if(value!==''&&value!==null&&value!==undefined&&Number.isFinite(Number(value))){total+=Number(value);has=true;}});out[column.id]=has?Number(total.toFixed(6)):'';});
+    return out;
+  }
+  let total=0,has=false;fld.rows.filter(item=>!item.computed).forEach(item=>{const value=data&&data[item.id];if(value!==''&&value!==null&&value!==undefined&&Number.isFinite(Number(value))){total+=Number(value);has=true;}});
+  return has?Number(total.toFixed(6)):'';
+}
 function gridPdf(doc,fld,data,filled,y,PH){
   const d=data||{},fieldUnit=unitForOutput(fld),totalRows=fld.rows.map((row,index)=>row.computed?index:-1).filter(index=>index>=0);
   const markTotalCells=dataTable=>{dataTable.cell.styles.fontStyle='bold';dataTable.cell.styles.fillColor=[236,253,245];dataTable.cell.styles.textColor=[4,120,87];};
   y=formTitle(doc,fld.label+(fieldUnit?' ('+fieldUnit+')':''),y,PH);
   if(fld.fields&&fld.fields.length){
     const head=['Item'].concat(fld.fields.map(column=>{const unit=unitForOutput(column,fld);return column.label+(unit?' ('+unit+')':'');}));
-    const body=fld.rows.map(row=>[row.label].concat(fld.fields.map(column=>{const value=d[row.id]&&d[row.id][column.id];return filled?currencyValueForOutput(column,fld,value):'........................';})));
+    const body=fld.rows.map(row=>{const rowData=computedGridValue(fld,d,row);return [row.label].concat(fld.fields.map(column=>{const value=rowData&&rowData[column.id];return filled?currencyValueForOutput(column,fld,value):'........................';}));});
     doc.autoTable({startY:y,head:[head],body,styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:78}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
   }else{
     const yn=fld.rows.some(row=>row.type==='yn');
-    doc.autoTable({startY:y,head:[['Item',yn?'Jawaban':(fieldUnit||'Nilai')]],body:fld.rows.map(row=>[row.label,filled?currencyValueForOutput(fld,null,d[row.id]):'........................']),styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:88}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
+      doc.autoTable({startY:y,head:[['Item',yn?'Jawaban':(fieldUnit||'Nilai')]],body:fld.rows.map(row=>{const value=computedGridValue(fld,d,row);return [row.label,filled?currencyValueForOutput(fld,null,value):'........................'];}),styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:88}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
   }
   return doc.lastAutoTable.finalY+4;
 }
@@ -284,8 +294,8 @@ function gridXls(aoa,fld,data,filled,currencyCells){
   if(fld.fields&&fld.fields.length){
     aoa.push(['Item'].concat(fld.fields.map(column=>{const unit=unitForOutput(column,fld);return column.label+(unit?' ('+unit+')':'');})));
     fld.rows.forEach(row=>{
-      const rowIndex=aoa.length,values=fld.fields.map((column,columnIndex)=>{
-        const value=d[row.id]&&d[row.id][column.id],scale=currencyScaleForField(column,fld);
+      const rowIndex=aoa.length,rowData=computedGridValue(fld,d,row),values=fld.fields.map((column,columnIndex)=>{
+        const value=rowData&&rowData[column.id],scale=currencyScaleForField(column,fld);
         if(filled&&scale){currencyCells.push({r:rowIndex,c:columnIndex+1});return storedCurrencyToAbsolute(value,scale);}
         return filled?(value||''):'';
       });
@@ -295,7 +305,7 @@ function gridXls(aoa,fld,data,filled,currencyCells){
     const yn=fld.rows.some(row=>row.type==='yn'),scale=currencyScaleForField(fld);
     aoa.push(['Item',yn?'Jawaban':(fieldUnit||'Nilai')]);
     fld.rows.forEach(row=>{
-      const rowIndex=aoa.length,value=d[row.id];
+      const rowIndex=aoa.length,value=computedGridValue(fld,d,row);
       if(filled&&scale)currencyCells.push({r:rowIndex,c:1});
       aoa.push([row.label,filled?(scale?storedCurrencyToAbsolute(value,scale):(value||'')):'']);
     });
