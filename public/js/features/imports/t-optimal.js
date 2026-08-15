@@ -1,5 +1,6 @@
 import { getAppContext } from '../../core/context.js';
 import { normalizeTOptimalBundle } from '../../domain/imports/t-optimal-map.js';
+import { attachSppgAnalytics } from '../../domain/monitoring/operational-analytics.js';
 
 const { repositories } = getAppContext();
 const unitsRepository = repositories.units;
@@ -200,13 +201,14 @@ function makeMonitoring(item, unit, bundle) {
       fields: item.fields, raw,
       _source: { system: 'T-OPTIMAL', responseId: item.sourceId, sheetName: item.sheetName, importedAt: new Date().toISOString(), normalizationVersion: 't-optimal-darma-v1', scope: bundle?.scope || {} }
     };
-  return {
+  const record = {
     id: sourceKey(item), unitId: unit.id, tgl: dateOnly(item.tgl, fallbackDate),
     petugas: item.petugas || bundle?.scope?.email || 'T-OPTIMAL', jenis: item.formType === 'KDMP' ? 'KDMP' : 'SPPG', formType: item.formType,
     form,
     hasil: item.formType === 'KDMP' ? (item.fields.hasil || 'sudah') : 'sudah', kebersihan: '', gizi: '', distribusi: '', dok: item.fileUrl ? 'baik' : '',
     temuan: String(raw.analisisSurveyor || '').trim() || `Respons ${item.formType} diimpor dari T-OPTIMAL.`, rekom: ''
   };
+  return item.formType === 'SPPG' ? attachSppgAnalytics(record, unit) : record;
 }
 
 function rowStatus(item, existingIds) {
