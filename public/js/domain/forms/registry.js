@@ -99,8 +99,8 @@ const FORM_SPPG_V1={key:'SPPG',version:'SPPG-V1',title:'DAFTAR PERTANYAAN UNTUK 
     {id:'sp110',label:'Tanggal wawancara',type:'d'}
   ]},
   {title:'Bagian 2. Operasional SPPG',fields:[
-    {id:'sp201',label:'Jumlah porsi/hari yang dilayani pada akhir bulan lalu',type:'g',unit:'penerima',rows:[{id:'siswa',label:'Siswa'},{id:'ibuhamil',label:'Ibu Hamil & Menyusui'},{id:'balita',label:'Balita'},{id:'guru',label:'Guru & Tendik'},{id:'posyandu',label:'Kader Posyandu'}]},
-    {id:'sp202',label:'Jumlah Sekolah yang menerima MBG pada akhir bulan lalu',type:'g',unit:'penerima',rows:[{id:'paud',label:'PAUD'},{id:'tk',label:'TK/RA'},{id:'sd',label:'SD/MI/SDLB'},{id:'smp',label:'SMP/MTs/SMPLB'},{id:'sma',label:'SMA/SMK/MA/SMALB'}]},
+    {id:'sp201',label:'Jumlah porsi/hari yang dilayani pada akhir bulan lalu',type:'g',unit:'penerima',rows:[{id:'siswa',label:'Siswa'},{id:'ibuhamil',label:'Ibu Hamil & Menyusui'},{id:'balita',label:'Balita'},{id:'guru',label:'Guru & Tendik'},{id:'posyandu',label:'Kader Posyandu'},{id:'total',label:'TOTAL PORSI/HARI',computed:true}]},
+    {id:'sp202',label:'Jumlah Sekolah yang menerima MBG pada akhir bulan lalu',type:'g',unit:'penerima',rows:[{id:'paud',label:'PAUD'},{id:'tk',label:'TK/RA'},{id:'sd',label:'SD/MI/SDLB'},{id:'smp',label:'SMP/MTs/SMPLB'},{id:'sma',label:'SMA/SMK/MA/SMALB'},{id:'total',label:'TOTAL SEKOLAH',computed:true}]},
     {id:'sp203',label:'Jumlah hari penyaluran MBG bulan lalu',type:'n',unit:'hari'},
     {id:'sp204',label:'Waktu tempuh terlama untuk distribusi',type:'c',opts:['< 15 menit','< 30 menit','> 30 menit, sebutkan']},
     {id:'sp205',label:'Total jumlah pekerja bulan lalu (termasuk Kepala SPPG, Pengawas Gizi, Akuntan)',type:'n',unit:'orang'},
@@ -110,7 +110,7 @@ const FORM_SPPG_V1={key:'SPPG',version:'SPPG-V1',title:'DAFTAR PERTANYAAN UNTUK 
   ]},
   {title:'Bagian 3. Keamanan Pangan dan Pengelolaan Sampah',fields:[
     {id:'sp301',label:'Apakah terdapat pengawasan kelaikan makanan oleh pihak eksternal?',type:'yn'},
-    {id:'sp302',label:'Jika ya, berapa kali dilakukan pada minggu lalu',type:'g',unit:'kali',rows:[{id:'kppg',label:'KPPG/Korwil/Korcam'},{id:'dinkes',label:'Dinas Kesehatan/Puskesmas'},{id:'tni',label:'TNI / POLRI'},{id:'lain',label:'Lainnya'}]},
+    {id:'sp302',label:'Jika ya, berapa kali dilakukan pada minggu lalu',type:'g',unit:'kali',rows:[{id:'kppg',label:'KPPG/Korwil/Korcam'},{id:'dinkes',label:'Dinas Kesehatan/Puskesmas'},{id:'tni',label:'TNI / POLRI'},{id:'lain',label:'Lainnya'},{id:'total',label:'TOTAL PENGAWASAN (KALI)',computed:true}]},
     {id:'sp303',label:'Pukul makanan mulai dimasak hari ini',type:'tm'},
     {id:'sp304',label:'Pukul makanan selesai dimasak',type:'tm'},
     {id:'sp305',label:'Pukul mulai proses pemorsian',type:'tm'},
@@ -132,10 +132,10 @@ const FORM_SPPG_V1={key:'SPPG',version:'SPPG-V1',title:'DAFTAR PERTANYAAN UNTUK 
     {id:'sp407',label:'Periode pembayaran insentif dapur (Rp6 juta/hari)',type:'c',opts:['Bulanan','Dua mingguan','Mingguan','Harian']},
     {id:'sp408',label:'Jumlah hari untuk perhitungan insentif dapur minggu lalu',type:'n',unit:'hari'},
     {id:'sp409',label:'Jumlah supplier untuk program MBG pada SPPG ini',type:'n',unit:'unit supplier'},
-    {id:'sp410',label:'Pengeluaran bahan baku minggu lalu (per kelompok supplier)',type:'g',unit:'Rp Juta',rows:[{id:'kdkmp',label:'KDKMP'},{id:'bumdes',label:'BUMDes/Koperasi lainnya'},{id:'agen',label:'Agen/Pasar'},{id:'distributor',label:'Distributor'},{id:'produsen',label:'Produsen (petani, peternak, nelayan)'},{id:'umkm',label:'UMKM makanan'}]},
+    {id:'sp410',label:'Pengeluaran bahan baku minggu lalu (per kelompok supplier)',type:'g',unit:'Rp Juta',rows:[{id:'kdkmp',label:'KDKMP'},{id:'bumdes',label:'BUMDes/Koperasi lainnya'},{id:'agen',label:'Agen/Pasar'},{id:'distributor',label:'Distributor'},{id:'produsen',label:'Produsen (petani, peternak, nelayan)'},{id:'umkm',label:'UMKM makanan'},{id:'total',label:'TOTAL PENGELUARAN SUPPLIER',computed:true}]},
     {id:'sp411',label:'Pengeluaran bahan baku minggu lalu (per kelompok bahan baku)',type:'g',fields:[{id:'dalam',label:'Dalam kota',unit:'Rp Juta'},{id:'luar',label:'Luar kota',unit:'Rp Juta'}],rows:[{id:'pokok',label:'Makanan Pokok (Beras, Kentang, Ubi)'},{id:'lauk',label:'Lauk (Daging, ayam, ikan, tempe, tahu)'},{id:'sayur',label:'Sayuran'},{id:'buah',label:'Buah-buahan'},{id:'minum',label:'Minuman (Susu, dll)'},{id:'lain',label:'Lainnya (Minyak, bumbu)'}]},
     {id:'sp412',label:'Harga bahan baku',type:'g',fields:[{id:'ini',label:'Bulan ini',unit:'Rp Ribu/kg'},{id:'lalu',label:'Bulan lalu',unit:'Rp Ribu/kg'}],rows:[{id:'beras',label:'Beras'},{id:'ayam',label:'Daging ayam'},{id:'telur',label:'Telur'},{id:'susu',label:'Susu'}]},
-    {id:'sp413',label:'Pengeluaran biaya operasional minggu lalu',type:'g',unit:'Rp Juta',rows:[{id:'tk',label:'Tenaga kerja/Relawan'},{id:'bbm',label:'Bensin/Solar/BBM'},{id:'lpg',label:'LPG/BBG/Gas Kota'},{id:'util',label:'Utilitas: Listrik, Air Bersih'},{id:'sewa',label:'Sewa kendaraan'},{id:'lain',label:'Biaya operasional lainnya'}]},
+    {id:'sp413',label:'Pengeluaran biaya operasional minggu lalu',type:'g',unit:'Rp Juta',rows:[{id:'tk',label:'Tenaga kerja/Relawan'},{id:'bbm',label:'Bensin/Solar/BBM'},{id:'lpg',label:'LPG/BBG/Gas Kota'},{id:'util',label:'Utilitas: Listrik, Air Bersih'},{id:'sewa',label:'Sewa kendaraan'},{id:'lain',label:'Biaya operasional lainnya'},{id:'total',label:'TOTAL BIAYA OPERASIONAL',computed:true}]},
     {id:'sp414',label:'Kendala terkait penyiapan dan distribusi MBG (boleh lebih dari satu)',type:'m',opts:['Ketersediaan bahan baku','Harga bahan baku meningkat','Pembayaran ke supplier terhambat','Petty cash tidak mencukupi','Keterlambatan pencairan anggaran dari BGN','Lainnya']}
   ]},
   {title:'Bagian 5. Dokumentasi Kegiatan & Lampiran',fields:[
