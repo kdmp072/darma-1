@@ -133,15 +133,16 @@ function currencyValueForOutput(field,parentField,value){const scale=currencySca
 function unitForOutput(field,parentField=null){return displayUnitForField(field,parentField);}
 function hasFormData(form){const f=(form&&form.fields)||{};return Object.keys(f).some(k=>{const v=f[k];if(v==null||v==='')return false;if(Array.isArray(v))return v.length>0;if(typeof v==='object')return Object.values(v).some(x=>x&&(typeof x!=='object'||Object.values(x).some(z=>z)));return true;});}
 function gridPdf(doc,fld,data,filled,y,PH){
-  const d=data||{},fieldUnit=unitForOutput(fld);
+  const d=data||{},fieldUnit=unitForOutput(fld),totalRows=fld.rows.map((row,index)=>row.computed?index:-1).filter(index=>index>=0);
+  const markTotalCells=dataTable=>{dataTable.cell.styles.fontStyle='bold';dataTable.cell.styles.fillColor=[236,253,245];dataTable.cell.styles.textColor=[4,120,87];};
   y=formTitle(doc,fld.label+(fieldUnit?' ('+fieldUnit+')':''),y,PH);
   if(fld.fields&&fld.fields.length){
     const head=['Item'].concat(fld.fields.map(column=>{const unit=unitForOutput(column,fld);return column.label+(unit?' ('+unit+')':'');}));
     const body=fld.rows.map(row=>[row.label].concat(fld.fields.map(column=>{const value=d[row.id]&&d[row.id][column.id];return filled?currencyValueForOutput(column,fld,value):'';})));
-    doc.autoTable({startY:y,head:[head],body,styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:78}}});
+    doc.autoTable({startY:y,head:[head],body,styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:78}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
   }else{
     const yn=fld.rows.some(row=>row.type==='yn');
-    doc.autoTable({startY:y,head:[['Item',yn?'Jawaban':(fieldUnit||'Nilai')]],body:fld.rows.map(row=>[row.label,filled?currencyValueForOutput(fld,null,d[row.id]):'']),styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:88}}});
+    doc.autoTable({startY:y,head:[['Item',yn?'Jawaban':(fieldUnit||'Nilai')]],body:fld.rows.map(row=>[row.label,filled?currencyValueForOutput(fld,null,d[row.id]):'']),styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:88}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
   }
   return doc.lastAutoTable.finalY+4;
 }
