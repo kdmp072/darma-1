@@ -1,4 +1,5 @@
 import { getAppContext } from '../../core/context.js';
+import { attachSppgAnalytics } from '../../domain/monitoring/operational-analytics.js';
 
 const monitoringRepository = getAppContext().repositories.monitoring;
 
@@ -122,14 +123,13 @@ function saveMonitoring(){
     hasil=getVal('rHasilManual')||'baik';
   }
   const base={unitId,tgl,petugas,driver,jenis:u.jenis,formType:(u.jenis==='KDMP'?'KDMP':(currentRekamForm||'SPPG')),form,hasil,temuan,rekom};
-  if(editMonId){
-    const current=monitoringRepository.getAll().find(x=>x.id===editMonId);
-    if(current){monitoringRepository.save(Object.assign({},current,base));toast('✅ Monitoring diperbarui');}
-    editMonId=null;
-  }else{
-    monitoringRepository.save(Object.assign({id:uid('mon')},base));
-    toast(`✅ Monitoring "${u.nama}" tersimpan — hasil: ${HASIL_META[hasil].label}`);
-  }
+  const current=editMonId?monitoringRepository.getAll().find(x=>x.id===editMonId):null;
+  let savedRecord=Object.assign({},current||{id:uid('mon')},base);
+  if(u.jenis==='SPPG') savedRecord=attachSppgAnalytics(savedRecord,u);
+  monitoringRepository.save(savedRecord);
+  if(editMonId) toast('✅ Monitoring diperbarui');
+  else toast(`✅ Monitoring "${u.nama}" tersimpan — hasil: ${HASIL_META[hasil].label}`);
+  editMonId=null;
   resetRekamForm();
   renderAll();selectUnit(unitId);
   map.flyTo([u.lat,u.lng],13,{duration:1});
