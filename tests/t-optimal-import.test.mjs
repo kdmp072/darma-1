@@ -17,6 +17,7 @@ test('SPPG finance fields are normalized from full Rupiah', () => {
     sheetName: 'Resp_MBG_SPPG', sourceId: 'currency-1',
     formData: {
       q101_namaSPPG: 'SPPG Uji', q110_tglWawancara: '2026-08-14', latitude: -6.9, longitude: 109.6,
+      q201_siswa: 100, q201_balita: 20, q202_sekolahSD: 3, q203_hariPenyaluran: 5,
       q401_saldoVA: '250000000', q403_nilaiTopup: '125.500.000',
       q410_a_kdkmp: '100000000', q411_a_pokok_dalamKota: '50000000', q411_a_pokok_luarKota: '25000000',
       q412_a_beras_bulanIni: '18500', q412_a_beras_bulanLalu: '17000',
@@ -26,6 +27,8 @@ test('SPPG finance fields are normalized from full Rupiah', () => {
 
   assert.equal(mapped.identity.lat, '-6.9');
   assert.equal(mapped.identity.lng, '109.6');
+  assert.equal(mapped.fields.sp201.total, 120);
+  assert.equal(mapped.fields.sp202.total, 3);
   assert.equal(mapped.fields.sp401, 250);
   assert.equal(mapped.fields.sp403, 125.5);
   assert.equal(mapped.fields.sp410.kdkmp, 100);
