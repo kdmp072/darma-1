@@ -4,8 +4,9 @@ import { normalizeTOptimalBundle } from '../../domain/imports/t-optimal-map.js';
 const { repositories } = getAppContext();
 const unitsRepository = repositories.units;
 const monitoringRepository = repositories.monitoring;
-
-let importState = { bundle: null, rows: [], filters: {} };
+const UNIT_ALIAS_KEY = 'darma_toptimal_unit_aliases_v1';
+let importState = { bundle: null, rows: [], filters: {}, mode: 'sppg' };
+let pendingImportMode = '';
 
 function norm(value) {
   return String(value == null ? '' : value).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -50,6 +51,24 @@ function compactName(value) {
   let key = norm(value).replace(/^sppg/, '').replace(/\b(sppg|dapur|mbg)\b/g, ' ').replace(/\bno\.?\b/g, ' ');
   key = key.replace(/\b0+(\d+)\b/g, '$1').replace(/[^a-z0-9]/g, '');
   return key.replace(/0+(\d+)$/, '$1');
+}
+
+function aliasKey(identity, jenis = 'SPPG') {
+  const item = identity || {};
+  return `${jenis}|${compactName(item.name)}|${norm(item.kab)}|${norm(item.kec)}|${norm(item.desa)}`;
+}
+function loadUnitAliases() {
+  try { return JSON.parse(localStorage.getItem(UNIT_ALIAS_KEY) || '{}'); } catch { return {}; }
+}
+function rememberUnitAlias(item, unit) {
+  if (!unit || !item?.identity?.name) return;
+  const aliases = loadUnitAliases();
+  aliases[aliasKey(item.identity, unit.jenis)] = { unitId: unit.id, unitName: unit.nama, savedAt: new Date().toISOString() };
+  localStorage.setItem(UNIT_ALIAS_KEY, JSON.stringify(aliases));
+}
+function unitByAlias(identity, jenis = 'SPPG') {
+  const alias = loadUnitAliases()[aliasKey(identity, jenis)];
+  return alias?.unitId ? unitsRepository.getById(alias.unitId) : null;
 }
 
 function levenshteinRatio(a, b) {
@@ -99,6 +118,8 @@ function rankUnitCandidates(identity, jenis = 'SPPG') {
 }
 
 function findUnit(identity, jenis = 'SPPG') {
+  const remembered = unitByAlias(identity, jenis);
+  if (remembered) return remembered;
   const candidates = rankUnitCandidates(identity, jenis);
   const best = candidates[0];
   const second = candidates[1];
@@ -317,6 +338,9 @@ function resetTOptimalFilters() {
 
 function openImportModal() { document.getElementById('mTOptimalImport')?.classList.remove('hidden'); }
 function closeImportModal() { document.getElementById('mTOptimalImport')?.classList.add('hidden'); }
+function openTOptimalImportMode() { closeTOptimalProcessMenu(); document.getElementById('mTOptimalImportMode')?.classList.remove('hidden'); }
+function closeTOptimalImportMode() { document.getElementById('mTOptimalImportMode')?.classList.add('hidden'); }
+function chooseTOptimalImportMode(mode) { pendingImportMode = mode; closeTOptimalImportMode(); document.getElementById('impTOptimal')?.click(); }
 
 function importTOptimal(event) {
   const file = event?.target?.files?.[0];
@@ -359,9 +383,11 @@ function importTOptimal(event) {
       const sheetNames = (bundle.sheets || mapped.map(item => item.sheetName)).map(value => String(value).toLowerCase());
       const suggestedMode = sheetNames.some(value => value.includes('naker') || value.includes('tenaga')) ? 'naker'
         : sheetNames.some(value => value.includes('kdkmp') || value.includes('kdmp')) ? 'kdmp' : 'sppg';
-      importState = { bundle, rows, filters: {}, mode: suggestedMode };
+      const selectedMode = pendingImportMode || suggestedMode;
+      importState = { bundle, rows, filters: {}, mode: selectedMode };
+      pendingImportMode = '';
       const modeSelect = document.getElementById('toptProcessMode');
-      if (modeSelect) modeSelect.value = suggestedMode;
+      if (modeSelect) modeSelect.value = selectedMode;
       const kabSelect = document.getElementById('toptFilterKab');
       if (kabSelect) {
         const values = [...new Set(importState.rows.map(row => row.item.identity?.kab).filter(Boolean))].sort();
@@ -391,6 +417,7 @@ function commitCoordinateProcess() {
   latestByUnit.forEach(({ row, unit }) => {
     const identity = row.item.identity;
     unitsRepository.save(Object.assign({}, unit, { lat: coordinateValue(identity.lat), lng: coordinateValue(identity.lng) }));
+    rememberUnitAlias(row.item, unit);
     updated += 1;
   });
   if (typeof renderAll === 'function') renderAll();
@@ -429,6 +456,7 @@ function commitTOptimalImport() {
     if (!unit && autoCreate && CU.role === 'admin') { unit = makeUnit(row.item); unitsRepository.save(unit); createdUnits += 1; }
     if (!unit) { skipped += 1; return; }
     resolved.push({ row, unit });
+    rememberUnitAlias(row.item, unit);
     const record = makeMonitoring(row.item, unit, importState.bundle);
     if (replaceSameDay && row.status === 'duplikat-hari' && row.existingId) record.id = row.existingId;
     monitoringRepository.save(record); imported += 1;
@@ -456,5 +484,6 @@ function commitTOptimalImport() {
 
 Object.assign(globalThis, {
   importTOptimal, openImportModal, closeImportModal, filterTOptimalPreview,
-  resetTOptimalFilters, selectAllTOptimal, toggleTOptimalRow, assignTOptimalUnit, changeTOptimalMode, commitCoordinateProcess, commitTOptimalImport
+  resetTOptimalFilters, selectAllTOptimal, toggleTOptimalRow, assignTOptimalUnit, changeTOptimalMode, commitCoordinateProcess, commitTOptimalImport,
+  openTOptimalImportMode, closeTOptimalImportMode, chooseTOptimalImportMode
 });
