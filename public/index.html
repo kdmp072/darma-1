@@ -615,10 +615,26 @@
     <div class="mbody">
       <div class="import-explain"><b>Satu file JSON, dua arah proses:</b> gunakan <b>Import</b> untuk memasukkan data dari Connector Windows ke DARMA-1. Gunakan <b>Ekspor Form</b> untuk menyiapkan payload monitoring terpilih yang nantinya dapat digunakan Portal T-OPTIMAL.</div>
       <div class="process-choice-grid">
-        <button class="process-choice" onclick="beginTOptimalImport()"><i class="fas fa-file-import"></i><b>Import JSON</b><small>Pilih mode proses lalu tampilkan pratinjau sebelum menyimpan.</small></button>
+        <button class="process-choice" onclick="openTOptimalImportMode()"><i class="fas fa-file-import"></i><b>Import JSON</b><small>Pilih jenis proses terlebih dahulu, lalu pilih file JSON.</small></button>
         <button class="process-choice" onclick="openTOptimalExport()"><i class="fas fa-file-export"></i><b>Ekspor Form Monitoring</b><small>Pilih monitoring SPPG/NAKER/KDMP untuk payload outbound.</small></button>
       </div>
       <div class="import-currency-note">Ekspor belum mengirim data ke T-OPTIMAL. File hanya disiapkan untuk tahap Portal T-OPTIMAL berikutnya.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: PILIH MODE IMPORT T-OPTIMAL ================= -->
+<div id="mTOptimalImportMode" class="moverlay hidden">
+  <div class="mbox" style="max-width:760px">
+    <div class="mhead"><h3><i class="fas fa-filter"></i> Pilih Mode Import</h3><button class="mclose" onclick="closeTOptimalImportMode()">×</button></div>
+    <div class="mbody">
+      <div class="import-explain"><b>Pilih tujuan data sebelum memilih file.</b> File JSON yang sama dapat diproses dengan mode yang berbeda. Mode <b>Sinkronisasi Koordinat</b> tidak pernah membuat Master Unit baru.</div>
+      <div class="process-choice-grid process-choice-grid-4">
+        <button class="process-choice" onclick="chooseTOptimalImportMode('coordinates')"><i class="fas fa-map-marker-alt"></i><b>Sinkronisasi Koordinat</b><small>Update latitude/longitude Master Unit yang cocok saja.</small></button>
+        <button class="process-choice" onclick="chooseTOptimalImportMode('sppg')"><i class="fas fa-utensils"></i><b>Monitoring SPPG/MBG</b><small>Map q101–q414 ke monitoring SPPG.</small></button>
+        <button class="process-choice" onclick="chooseTOptimalImportMode('naker')"><i class="fas fa-users"></i><b>Monitoring Tenaga Kerja</b><small>Map respons Naker sebagai pelengkap SPPG.</small></button>
+        <button class="process-choice" onclick="chooseTOptimalImportMode('kdmp')"><i class="fas fa-store"></i><b>Monitoring KDMP</b><small>Map respons KDMP ke Master Unit KDMP.</small></button>
+      </div>
     </div>
   </div>
 </div>
@@ -638,7 +654,7 @@
       <div class="import-count" id="toptExportMeta">Belum ada data.</div>
       <div class="import-table-wrap"><table class="import-table"><thead><tr><th style="width:34px">Pilih</th><th>Form</th><th>Unit</th><th>Tanggal</th><th>ID DARMA</th><th>Status</th></tr></thead><tbody id="toptExportRows"></tbody></table></div>
     </div>
-    <div class="mfoot"><button class="btn bx" onclick="closeTOptimalExport()">Batal</button><button class="btn bp" id="toptExportButton" onclick="exportTOptimalSelected()" disabled><i class="fas fa-download"></i> Ekspor JSON Terpilih</button></div>
+    <div class="mfoot"><button class="btn bx" onclick="closeTOptimalExport()">Batal</button><button class="btn bp" id="toptExportButton" onclick="exportTOptimalSelected()" disabled><i class="fas fa-download"></i> Ekspor 1 Form Terpilih</button></div>
   </div>
 </div>
 
@@ -690,7 +706,7 @@
           <tbody id="toptImportRows"><tr><td colspan="7" class="text-center text-muted py-3">Belum ada file dipilih.</td></tr></tbody>
         </table>
       </div>
-      <div class="import-currency-note"><b>Catatan:</b> q401/q403/q411/q413 dibagi 1.000.000; q412 dibagi 1.000; q203/q207 Tenaga Kerja tidak dibagi. q410 memakai deteksi campuran: angka kecil seperti 1/15 diperlakukan sebagai 1/15 juta, sedangkan nominal besar dibagi 1.000.000. Jika opsi koordinat dicentang, koordinat terbaru dari respons terpilih akan memperbarui Master Unit. Untuk SPPG, satu unit pada tanggal yang sama diperlakukan sebagai satu rekaman; data duplikat otomatis tidak dipilih. Jika perlu mengganti rekaman lama, centang opsi perbarui rekaman tanggal sama. Data asli tetap disimpan di bagian audit form.</div>
+      <div class="import-currency-note"><b>Catatan:</b> q401/q403/q411/q413 dibagi 1.000.000; q412 dibagi 1.000; q203/q207 Tenaga Kerja tidak dibagi. q410 memakai deteksi campuran: angka kecil seperti 1/15 diperlakukan sebagai 1/15 juta, sedangkan nominal besar dibagi 1.000.000. Jika opsi koordinat dicentang, koordinat terbaru dari respons terpilih akan memperbarui Master Unit. Koreksi pencocokan yang disetujui Admin disimpan sebagai alias di browser agar import berikutnya pada browser yang sama lebih mudah. Untuk SPPG, satu unit pada tanggal yang sama diperlakukan sebagai satu rekaman; data duplikat otomatis tidak dipilih. Jika perlu mengganti rekaman lama, centang opsi perbarui rekaman tanggal sama. Data asli tetap disimpan di bagian audit form.</div>
     </div>
     <div class="mfoot">
       <button class="btn bx" onclick="closeImportModal()">Batal</button>
