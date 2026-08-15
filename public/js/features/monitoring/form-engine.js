@@ -1,6 +1,8 @@
 import { calculateSppg411Totals, shouldShowConditionalField, SPPG_411_ROWS } from '../../domain/forms/sppg-calculations.js';
 import { currencyScaleForField, displayUnitForField, formatRupiahAmount, formatStoredCurrency, parseCurrencyToStored, parseRupiahAmount } from '../../domain/forms/currency.js';
 
+const COMPUTED_GRID_IDS = new Set(['sp201','sp202','sp302','sp410','sp411','sp413']);
+function shouldComputeGrid(f){return COMPUTED_GRID_IDS.has(f.id);}
 function showPreview(html,color,hasil){const el=document.getElementById('hasilPreview');el.innerHTML=html;el.style.color='#fff';el.style.background=color;el.style.borderColor=color;document.getElementById('hasilPreviewWrap').style.display='block';currentPreviewHasil=hasil;}
 function hidePreview(){document.getElementById('hasilPreviewWrap').style.display='none';currentPreviewHasil=null;}
 function focusCurrencyInput(input){const amount=parseRupiahAmount(input.value);input.value=amount==null?'':String(amount);input.select();}
@@ -101,7 +103,7 @@ function gridFieldHtml(f,data){
       return `<th>${esc(column.label)}${unit?`<br><span style="font-weight:400;text-transform:none">(${esc(unit)})</span>`:''}</th>`;
     }).join('')+'</tr></thead><tbody>';
     f.rows.forEach(row=>{
-      h+='<tr><td class="glab">'+esc(row.label)+'</td>'+f.fields.map(column=>{
+      h+='<tr class="'+(row.computed?'qgrid-total':'')+'"><td class="glab">'+esc(row.label)+'</td>'+f.fields.map(column=>{
         const rawValue=d[row.id]&&d[row.id][column.id],value=rawValue==null?'':rawValue,scale=currencyScaleForField(column,f),readOnly=!!row.computed;
         const onInput='onFormInput();'+(f.id==='sp411'?'updateSppgComputedTotals()':'');
         if(scale)return '<td>'+currencyInputHtml({id:'ff_'+f.id+'__'+row.id+'__'+column.id,className:'ginp',storedValue:value,scale,readOnly,onInput})+'</td>';
@@ -118,9 +120,10 @@ function gridFieldHtml(f,data){
     if(row.type==='yn'){
       h+='<tr><td class="glab">'+esc(row.label)+'</td><td><div class="qchips" data-fid="'+f.id+'__'+row.id+'" data-multi="0"><button type="button" class="qchip '+(value==='Ya'?'on':'')+'" data-opt="Ya" onclick="pickChip(this,false)">Ya</button><button type="button" class="qchip '+(value==='Tidak'?'on':'')+'" data-opt="Tidak" onclick="pickChip(this,false)">Tidak</button></div></td></tr>';
     }else if(scale){
-      h+='<tr><td class="glab">'+esc(row.label)+'</td><td>'+currencyInputHtml({id:'ff_'+f.id+'__'+row.id,className:'ginp',storedValue:value,scale})+'</td></tr>';
+      h+='<tr class="'+(row.computed?'qgrid-total':'')+'"><td class="glab">'+esc(row.label)+'</td><td>'+currencyInputHtml({id:'ff_'+f.id+'__'+row.id,className:'ginp',storedValue:value,scale,readOnly:!!row.computed,onInput:'onFormInput();updateSppgComputedTotals()'})+'</td></tr>';
     }else{
-      h+='<tr><td class="glab">'+esc(row.label)+'</td><td><input class="ginp" type="number" step="any" id="ff_'+f.id+'__'+row.id+'" value="'+esc(value||'')+'" oninput="onFormInput()"/></td></tr>';
+      const readOnly=!!row.computed, ro=readOnly?' readonly tabindex="-1"':'', eventAttr=readOnly?'':` oninput="onFormInput();${shouldComputeGrid(f)?'updateSppgComputedTotals();':''}"`;
+      h+='<tr class="'+(row.computed?'qgrid-total':'')+'"><td class="glab">'+esc(row.label)+'</td><td><input class="ginp" type="number" step="any" id="ff_'+f.id+'__'+row.id+'" value="'+esc(value||'')+'"'+ro+eventAttr+'/></td></tr>';
     }
   });
   return '<div class="qgrid-wrap">'+h+'</tbody></table></div>';
@@ -137,7 +140,22 @@ function pickChip(btn,multi){if(!multi){btn.parentNode.querySelectorAll('.qchip'
 function updateSppgConditionalFields(){
   document.querySelectorAll('#rekamForm .qfield[data-show-field]').forEach(row=>{const fid=row.dataset.showField,need=row.dataset.showContains||'',on=document.querySelector(`#rekamForm .qchips[data-fid="${fid}"] .qchip.on`),val=on?on.dataset.opt:'',show=shouldShowConditionalField(val,need);row.style.display=show?'':'none';if(!show){const inp=row.querySelector('input,textarea,select');if(inp)inp.value='';}});
 }
+function sumSimpleGrid(fieldId,rowIds,scale=0){
+  let total=0,hasValue=false;
+  rowIds.forEach(rowId=>{
+    const el=document.getElementById('ff_'+fieldId+'__'+rowId);if(!el)return;
+    const value=scale?parseCurrencyToStored(el.value,scale):String(el.value||'').trim();
+    if(value!==''&&Number.isFinite(Number(value))){total+=Number(value);hasValue=true;}
+  });
+  const target=document.getElementById('ff_'+fieldId+'__total');if(!target)return;
+  target.value=hasValue?(scale?formatStoredCurrency(total,scale):String(Number(total.toFixed(6)))):'';
+}
 function updateSppgComputedTotals(){
+  sumSimpleGrid('sp201',['siswa','ibuhamil','balita','guru','posyandu']);
+  sumSimpleGrid('sp202',['paud','tk','sd','smp','sma']);
+  sumSimpleGrid('sp302',['kppg','dinkes','tni','lain']);
+  sumSimpleGrid('sp410',['kdkmp','bumdes','agen','distributor','produsen','umkm'],1000000);
+  sumSimpleGrid('sp413',['tk','bbm','lpg','util','sewa','lain'],1000000);
   const scale=1000000,table={};
   SPPG_411_ROWS.forEach(row=>{table[row]={dalam:parseCurrencyToStored(getVal('ff_sp411__'+row+'__dalam'),scale),luar:parseCurrencyToStored(getVal('ff_sp411__'+row+'__luar'),scale)};});
   const totals=calculateSppg411Totals(table);
@@ -265,7 +283,7 @@ function renderRekamForm(jenis,rec){
     }
   }
   renderAllMS();
-  if(currentRekamForm==='SPPG'&&currentSppgFormVersion===SPPG_FORM_VERSION){updateSppgComputedTotals();updateSppgConditionalFields();}
+  if(currentRekamForm==='SPPG'){updateSppgComputedTotals();if(currentSppgFormVersion===SPPG_FORM_VERSION)updateSppgConditionalFields();}
   setVal('rHasilManual',(rec&&rec.formType===currentRekamForm&&rec.hasil)?rec.hasil:hasilSaran());
   previewHasilManual();
 }
