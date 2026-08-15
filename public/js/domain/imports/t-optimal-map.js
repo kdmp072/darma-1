@@ -147,6 +147,11 @@ function sumRows(rows) {
   });
   return hasValue ? { dalam: Number(total.dalam.toFixed(6)), luar: Number(total.luar.toFixed(6)) } : { dalam: '', luar: '' };
 }
+function sumValues(object, keys) {
+  let total = 0, hasValue = false;
+  keys.forEach(key => { if (object[key] !== '') { total += Number(object[key] || 0); hasValue = true; } });
+  return hasValue ? Number(total.toFixed(6)) : '';
+}
 
 function mapSppg(raw, fileUrl = '') {
   const rawKec = text(first(raw, 'kecamatan', 'kecamatanSurvei'));
@@ -237,7 +242,12 @@ function mapSppg(raw, fileUrl = '') {
     ].filter(Boolean),
     sp414_lain: text(raw.q414_kendalaLainnyaKet), sp_link_lampiran: text(first(raw, 'sp_link_lampiran', 'linkLampiran', 'buktiSurvei')) || text(fileUrl)
   };
+  f.sp201.total = sumValues(f.sp201, ['siswa','ibuhamil','balita','guru','posyandu']);
+  f.sp202.total = sumValues(f.sp202, ['paud','tk','sd','smp','sma']);
+  f.sp302.total = sumValues(f.sp302, ['kppg','dinkes','tni','lain']);
+  f.sp410.total = sumValues(f.sp410, ['kdkmp','bumdes','agen','distributor','produsen','umkm']);
   f.sp411.total = sumRows(f.sp411);
+  f.sp413.total = sumValues(f.sp413, ['tk','bbm','lpg','util','sewa','lain']);
   return f;
 }
 
