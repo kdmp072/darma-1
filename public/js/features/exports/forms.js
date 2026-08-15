@@ -138,11 +138,11 @@ function gridPdf(doc,fld,data,filled,y,PH){
   y=formTitle(doc,fld.label+(fieldUnit?' ('+fieldUnit+')':''),y,PH);
   if(fld.fields&&fld.fields.length){
     const head=['Item'].concat(fld.fields.map(column=>{const unit=unitForOutput(column,fld);return column.label+(unit?' ('+unit+')':'');}));
-    const body=fld.rows.map(row=>[row.label].concat(fld.fields.map(column=>{const value=d[row.id]&&d[row.id][column.id];return filled?currencyValueForOutput(column,fld,value):'';})));
+    const body=fld.rows.map(row=>[row.label].concat(fld.fields.map(column=>{const value=d[row.id]&&d[row.id][column.id];return filled?currencyValueForOutput(column,fld,value):'........................';})));
     doc.autoTable({startY:y,head:[head],body,styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:78}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
   }else{
     const yn=fld.rows.some(row=>row.type==='yn');
-    doc.autoTable({startY:y,head:[['Item',yn?'Jawaban':(fieldUnit||'Nilai')]],body:fld.rows.map(row=>[row.label,filled?currencyValueForOutput(fld,null,d[row.id]):'']),styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:88}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
+    doc.autoTable({startY:y,head:[['Item',yn?'Jawaban':(fieldUnit||'Nilai')]],body:fld.rows.map(row=>[row.label,filled?currencyValueForOutput(fld,null,d[row.id]):'........................']),styles:{fontSize:7.3,cellPadding:1.4,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),columnStyles:{0:{cellWidth:88}},didParseCell:dataTable=>{if(dataTable.section==='body'&&totalRows.includes(dataTable.row.index))markTotalCells(dataTable);}});
   }
   return doc.lastAutoTable.finalY+4;
 }
@@ -228,7 +228,7 @@ function generateFormPdf(jenis,filled,rec){
       const ng=sec.fields.filter(fld=>fld.type!=='g');
       if(ng.length){
         doc.autoTable({startY:y,head:[['No','Pertanyaan','Jawaban']],
-          body:ng.map((fld,i)=>{const unit=unitForOutput(fld);return [String(fld.code||((fld.id&&fld.id.match(/^(?:sp|nk)(\d+)/)||[])[1])||i+1),pdfSafe(fld.label)+(unit?' ('+unit+')':''),pdfSafe(fieldVal(fld,fields[fld.id],filled))];}),
+          body:ng.map((fld,i)=>{const unit=unitForOutput(fld);const answer=filled?fieldVal(fld,fields[fld.id],true):'................................................';return [String(fld.code||((fld.id&&fld.id.match(/^(?:sp|nk)(\d+)/)||[])[1])||i+1),pdfSafe(fld.label)+(unit?' ('+unit+')':''),pdfSafe(answer)];}),
           styles:{fontSize:7.5,cellPadding:1.5,lineWidth:0.1,lineColor:[180,180,180]},headStyles:pdfTableHead(doc),
           columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:85}},
           didParseCell:d=>{if(d.section==='body'&&d.column.index===2&&d.cell.raw){d.cell.styles.fontStyle='bold';}}});
